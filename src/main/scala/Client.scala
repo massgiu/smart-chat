@@ -1,4 +1,8 @@
-class Client {
+import akka.actor.Actor
+
+class Client extends Actor{
+
+  override def receive: Receive = ???
 
 }
 
@@ -12,4 +16,6 @@ object Client{
   final case class StringMessage(message : String)
 
   final case class AttachmentMessage()
+
+  final case class ResponseForChatCreation(accept : Boolean)
 }
