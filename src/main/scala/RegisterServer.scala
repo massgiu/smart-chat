@@ -1,8 +1,10 @@
-class WelcomeServer {
+import akka.actor.Actor
 
+class RegisterServer extends Actor{
+  override def receive: Receive = ???
 }
 
-object WelcomeServer {
+object RegisterServer {
   case class JoinRequest(clientName:String)
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest()
