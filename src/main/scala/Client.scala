@@ -47,7 +47,7 @@ object Client{
   final case class AttachmentMessageFromConsole(payload : Attachment)
 
   /**
-    * Represents the response from Server about client request
+    * Represents the response from server about client request
     * for chat creation
     * @param accept response from server
     */
