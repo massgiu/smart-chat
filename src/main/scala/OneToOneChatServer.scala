@@ -4,8 +4,8 @@ class OneToOneChatServer {
 
 object OneToOneChatServer {
 
-  case class message(text:String)
-  case class attachment(payload:Attachment)
+  case class Message(text:String)
+  case class Attachment(payload:Attachment)
 }
 
 class Attachment {
