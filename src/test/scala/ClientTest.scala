@@ -2,6 +2,7 @@ import java.util
 
 import Client._
 import OneToOneChatServer.attachment
+import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, NewGroupChatRequest}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -18,7 +19,7 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
 
     "Accept Registration From Register" in {
       client.tell(AcceptRegistrationFromRegister(true),self)
-      expectNoMessage()
+      expectMsgClass(AllUsersAndGroupsRequest.getClass)
       client.tell(AcceptRegistrationFromRegister(false),self)
       expectNoMessage()
     }
@@ -46,6 +47,17 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
     "Receive attachment from client console" in {
       client.tell(AttachmentMessageFromConsole,self)
       expectMsgClass(attachment.getClass)
+    }
+
+    "Receive a request of creating a new chat group" in {
+      client.tell(CreateGroupRequestFromConsole,self)
+      expectMsgClass(NewGroupChatRequest.getClass)
+    }
+
+    "Receive a request of joining to an existing chat group" in {
+      val groupName = "TestNameGroup"
+      client.tell(JoinGroupRequestFromConsole(groupName),self)
+      expectMsgClass(JoinGroupChatRequest(groupName).getClass)
     }
 
     "Receive response for chat creation" in {
