@@ -1,8 +1,20 @@
+import Client.{AcceptRegistrationFromRegister, UserAndGroupActive}
 import akka.actor.Actor
 
 class Client extends Actor{
 
-  override def receive: Receive = ???
+    override def receive: Receive = {
+
+    case AcceptRegistrationFromRegister(response) => {
+      
+    }
+
+    case UserAndGroupActive(userList, groupList)=> {
+
+
+    }
+
+  }
 
 }
 
@@ -52,4 +64,5 @@ object Client{
     * @param accept response from server
     */
   final case class ResponseForChatCreation(accept : Boolean)
+
 }
