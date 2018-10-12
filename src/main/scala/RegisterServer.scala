@@ -6,6 +6,7 @@ class RegisterServer extends Actor{
 
 object RegisterServer {
   case class JoinRequest(clientName:String)
+  case class AllUsersAndGroupsRequest()
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest()
   case class JoinGroupChatRequest(group:String)
