@@ -24,7 +24,7 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
       expectNoMessage()
     }
 
-    "Get users list and chat groups list" in {
+    "Get users list a nd chat groups list" in {
       client.tell(UserAndGroupActive(List[String](),List[String]()),self)
       expectNoMessage()
     }
@@ -36,7 +36,8 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
 
     "Receive message from client console" in {
       client.tell(StringMessageFromConsole("testMessage"),self)
-      expectMsgClass(Message("testMessage").getClass)
+      //A message is sent to ChatServer
+      expectNoMessage()
     }
 
     "Receive attachment from chat server" in {
@@ -46,7 +47,8 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
 
     "Receive attachment from client console" in {
       client.tell(AttachmentMessageFromConsole,self)
-      expectMsgClass(classOf[Attachment])
+      //An attachment is sent to ChatServer
+      expectNoMessage()
     }
 
     "Receive a request of creating a new chat group" in {
