@@ -1,9 +1,9 @@
 import java.util
 
 import Client._
-import OneToOneChatServer.attachment
+import OneToOneChatServer.Message
 import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, NewGroupChatRequest}
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{Actor, ActorPath, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -31,27 +31,27 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
 
     "Receive message from a chat server" in {
       client.tell(StringMessageFromServer("testMessage"),self)
-      //expectNoMessage()
+      expectNoMessage()
     }
 
     "Receive message from client console" in {
       client.tell(StringMessageFromConsole("testMessage"),self)
-      expectMsgClass(message("testMessage").getClass)
+      expectMsgClass(Message("testMessage").getClass)
     }
 
     "Receive attachment from chat server" in {
       client.tell(AttachmentMessageFromServer,self)
-      //expectNoMessage()
+      expectNoMessage()
     }
 
     "Receive attachment from client console" in {
       client.tell(AttachmentMessageFromConsole,self)
-      expectMsgClass(attachment.getClass)
+      expectMsgClass(classOf[Attachment])
     }
 
     "Receive a request of creating a new chat group" in {
       client.tell(CreateGroupRequestFromConsole,self)
-      expectMsgClass(NewGroupChatRequest.getClass)
+      expectMsgClass(classOf[NewGroupChatRequest])
     }
 
     "Receive a request of joining to an existing chat group" in {
@@ -61,9 +61,9 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
     }
 
     "Receive response for chat creation" in {
-      client.tell(ResponseForChatCreation(true),self)
+      client.tell(ResponseForChatCreation(true, Option(self)),self)
       expectNoMessage()
-      client.tell(ResponseForChatCreation(false),self)
+      client.tell(ResponseForChatCreation(false,Option(self)),self)
       expectNoMessage()
     }
   }

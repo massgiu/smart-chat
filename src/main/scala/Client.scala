@@ -1,12 +1,13 @@
 import Client._
+import OneToOneChatServer.{Attachment, Message}
 import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, JoinRequest, NewGroupChatRequest}
-import akka.actor.{Actor, ActorRef, ActorSelection}
+import akka.actor.{Actor, ActorRef, ActorSelection, Props}
 
 class Client extends Actor{
 
   val register_address : String = new String
   val register : ActorSelection  = context.actorSelection(register_address)
-  val chatServer : ActorRef
+  var chatServer : ActorRef = _
 
     override def preStart():Unit = {
       register.tell(JoinRequest("TestName"),self)
@@ -34,23 +35,20 @@ class Client extends Actor{
     }
 
     case StringMessageFromConsole(message) => {
-      /**
-        * Sends data to OneToOneChatServer
-        */
-      //chatServer.tell(Message)
+      chatServer.tell(Message(message),self)
     }
 
-    case AttachmentMessageFromServer(attachment) =>{
+    case AttachmentMessageFromServer(payload : OneToOneChatServer.Attachment) =>{
       /**
         * Display data on console
         */
     }
 
-    case AttachmentMessageFromConsole(attachment) =>{
+    case AttachmentMessageFromConsole(payload : OneToOneChatServer.Attachment) =>{
       /**
         * Sends data to OneToOneChatServer
         */
-      //chatServer.tell(Attachment)
+      chatServer.tell(Attachment(payload),self)
     }
 
     case CreateGroupRequestFromConsole() => {
@@ -61,8 +59,11 @@ class Client extends Actor{
       register.tell(JoinGroupChatRequest(groupName),self)
     }
 
-    case ResponseForChatCreation(response,chatServer) => {
-
+    case ResponseForChatCreation(response,serverForChat) => {
+      response match {
+        case true => chatServer = serverForChat.get
+        case  _ => println("Chat creation refused!")
+      }
     }
   }
 
