@@ -1,4 +1,4 @@
-import Client.{ResponseForChatCreation, UserAndGroupActive}
+import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, UserAndGroupActive}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -11,10 +11,17 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
   }
 
   "A Register Server" must {
-    "send an answer to a client asking to join it" in {
+    "accept a new client asking to join it" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer1")
-      server.tell(RegisterServer.JoinRequest("ciao"), this.testActor)
-      expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      server.tell(RegisterServer.JoinRequest("name"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(true))
+    }
+    "refuse a new client asking to join it using another client's name" in {
+      val server = system.actorOf(Props[RegisterServer], name = "welcomeServer4")
+      server.tell(RegisterServer.JoinRequest("name"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(true))
+      server.tell(RegisterServer.JoinRequest("name"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(false))
     }
     "send a list of all users when a client asks it" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer2")
