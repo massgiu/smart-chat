@@ -22,9 +22,9 @@ class RegisterServer extends Actor{
       sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList)
     case NewOneToOneChatRequest(friendName) =>
       //fold(if_not_present)(if_present)
-      users.find(_._1 == friendName).fold(sender ! ResponseForChatCreation(false))(_ => sender ! ResponseForChatCreation(true))
+      users.find(_._1 == friendName).fold(sender ! ResponseForChatCreation(false, Option.empty))(_ => sender ! ResponseForChatCreation(true, Option.empty))
     case JoinGroupChatRequest(group) =>
-      groups.find(_._1 == group).fold(sender ! ResponseForChatCreation(false))(_ => sender ! ResponseForChatCreation(true))
+      groups.find(_._1 == group).fold(sender ! ResponseForChatCreation(false, Option.empty))(_ => sender ! ResponseForChatCreation(true, Option.empty))
   }
 }
 
