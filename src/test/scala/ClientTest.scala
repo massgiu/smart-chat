@@ -52,7 +52,7 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
     }
 
     "Receive a request from console of creating a new chat group and forward it to register" in {
-      client.tell(CreateGroupRequestFromConsole,self)
+      client.tell(CreateGroupRequestFromConsole("groupName"),self)
       expectMsgClass(classOf[NewGroupChatRequest])
     }
 
