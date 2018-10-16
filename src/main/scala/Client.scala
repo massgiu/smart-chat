@@ -51,8 +51,8 @@ class Client extends Actor{
       chatServer.tell(Attachment(payload),self)
     }
 
-    case CreateGroupRequestFromConsole() => {
-      register.tell(NewGroupChatRequest(),self)
+    case CreateGroupRequestFromConsole(groupName : String) => {
+      register.tell(NewGroupChatRequest(groupName),self)
     }
 
     case JoinGroupRequestFromConsole(groupName : String) => {
@@ -112,7 +112,7 @@ object Client{
   /**
     * Request to create a chat a group from client console
     */
-  final case class CreateGroupRequestFromConsole()
+  final case class CreateGroupRequestFromConsole(groupName : String)
 
   /**
     * Request to join to chat a group from client console
