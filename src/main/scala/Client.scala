@@ -38,17 +38,17 @@ class Client extends Actor{
       chatServer.tell(Message(message),self)
     }
 
-    case AttachmentMessageFromServer(payload : OneToOneChatServer.Attachment) =>{
+    case AttachmentMessageFromServer(attachment : OneToOneChatServer.Attachment) =>{
       /**
         * Display data on console
         */
     }
 
-    case AttachmentMessageFromConsole(payload : OneToOneChatServer.Attachment) =>{
+    case AttachmentMessageFromConsole(attachment : OneToOneChatServer.Attachment) =>{
       /**
         * Sends data to OneToOneChatServer
         */
-      chatServer.tell(Attachment(payload),self)
+      chatServer.tell(Attachment(attachment.payload),self)
     }
 
     case CreateGroupRequestFromConsole(groupName : String) => {
