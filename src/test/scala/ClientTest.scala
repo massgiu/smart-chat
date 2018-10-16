@@ -14,7 +14,7 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
     TestKit.shutdownActorSystem(system)
   }
 
-  "A client actor" must {
+  "A client" must {
     val client = system.actorOf(Props[Client], name = "client")
 
     "Accept Registration From Register" in {
@@ -24,7 +24,7 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
       expectNoMessage()
     }
 
-    "Get users list a nd chat groups list" in {
+    "Get users list and chat groups list" in {
       client.tell(UserAndGroupActive(List[String](),List[String]()),self)
       expectNoMessage()
     }
@@ -51,12 +51,12 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
       expectNoMessage()
     }
 
-    "Receive a request of creating a new chat group" in {
+    "Receive a request from console of creating a new chat group and forward it to register" in {
       client.tell(CreateGroupRequestFromConsole,self)
       expectMsgClass(classOf[NewGroupChatRequest])
     }
 
-    "Receive a request of joining to an existing chat group" in {
+    "Receive a request from console of joining to an existing chat group and forward it to register" in {
       val groupName = "TestNameGroup"
       client.tell(JoinGroupRequestFromConsole(groupName),self)
       expectMsgClass(JoinGroupChatRequest(groupName).getClass)
