@@ -39,7 +39,7 @@ class Client extends Actor{
     }
 
     case AttachmentMessageFromServer(attachment : OneToOneChatServer.Attachment) =>{
-      /**
+      /** 
         * Display data on console
         */
     }

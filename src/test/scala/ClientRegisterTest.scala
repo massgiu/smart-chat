@@ -22,19 +22,8 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
     }
 
     "Get users list and chat groups list" in {
-      client.tell(UserAndGroupActive(List[String](),List[String]()),self)
+      client.tell(UserAndGroupActive(List[String]("myUserName"),List[String]()),self)
       expectNoMessage()
-    }
-
-    "Receive a request from console of creating a new chat group and forward it to register" in {
-      client.tell(CreateGroupRequestFromConsole("groupName"),self)
-      expectMsgClass(classOf[NewGroupChatRequest])
-    }
-
-    "Receive a request from console of joining to an existing chat group and forward it to register" in {
-      val groupName = "TestNameGroup"
-      client.tell(JoinGroupRequestFromConsole(groupName),self)
-      expectMsgClass(JoinGroupChatRequest(groupName).getClass)
     }
 
     "Receive response for chat creation" in {

@@ -1,6 +1,7 @@
 import java.util
 
 import Client._
+import RegisterServer.{JoinGroupChatRequest, NewGroupChatRequest}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -24,6 +25,17 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySpec")) with ImplicitSend
     "Receive attachment from client console" in {
       client.tell(AttachmentMessageFromConsole,self)
       //An attachment is sent to ChatServer
+      expectNoMessage()
+    }
+
+    "Receive a request from console of creating a new chat group and forward it to register" in {
+      client.tell(CreateGroupRequestFromConsole("groupName"),self)
+      expectNoMessage()
+    }
+
+    "Receive a request from console of joining to an existing chat group and forward it to register" in {
+      val groupName = "TestNameGroup"
+      client.tell(JoinGroupRequestFromConsole(groupName),self)
       expectNoMessage()
     }
   }
