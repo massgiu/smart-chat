@@ -15,7 +15,7 @@ class RegisterServer extends Actor{
       })(_ => sender ! AcceptRegistrationFromRegister(false))
     case NewGroupChatRequest(newGroupName) =>
       groups.find(_._1 == newGroupName).fold({
-        users += (newGroupName -> List.empty)
+        groups += (newGroupName -> List.empty)
         sender ! AcceptRegistrationFromRegister(true)
       })(_ => sender ! AcceptRegistrationFromRegister(false))
     case AllUsersAndGroupsRequest =>
