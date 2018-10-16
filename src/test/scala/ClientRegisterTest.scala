@@ -1,20 +1,17 @@
-import java.util
-
 import Client._
-import OneToOneChatServer.Message
 import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, NewGroupChatRequest}
-import akka.actor.{Actor, ActorPath, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
-class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
+class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll{
 
   override def afterAll: Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
-  "A client" must {
+  "A client whe interacts with register" must {
     val client = system.actorOf(Props[Client], name = "client")
 
     "Accept Registration From Register" in {
@@ -26,28 +23,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
 
     "Get users list and chat groups list" in {
       client.tell(UserAndGroupActive(List[String](),List[String]()),self)
-      expectNoMessage()
-    }
-
-    "Receive message from a chat server" in {
-      client.tell(StringMessageFromServer("testMessage"),self)
-      expectNoMessage()
-    }
-
-    "Receive message from client console" in {
-      client.tell(StringMessageFromConsole("testMessage"),self)
-      //A message is sent to ChatServer
-      expectNoMessage()
-    }
-
-    "Receive attachment from chat server" in {
-      client.tell(AttachmentMessageFromServer,self)
-      expectNoMessage()
-    }
-
-    "Receive attachment from client console" in {
-      client.tell(AttachmentMessageFromConsole,self)
-      //An attachment is sent to ChatServer
       expectNoMessage()
     }
 
