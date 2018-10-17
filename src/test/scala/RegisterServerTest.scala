@@ -1,6 +1,6 @@
 import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, UserAndGroupActive}
 import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
@@ -31,12 +31,17 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       expectMsgClass(classOf[UserAndGroupActive])
     }
     "Respond to a client when it wants to create a new one-to-one chat" in {
-      val clientName = "aClient"
+      val first = TestProbe("first")
+      val second = TestProbe("second")
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer3")
-      server.tell(RegisterServer.JoinRequest(clientName), this.testActor)
-      expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
-      server.tell(RegisterServer.NewOneToOneChatRequest(clientName), this.testActor)
-      expectMsgClass(classOf[ResponseForChatCreation])
+      first.send(server, RegisterServer.JoinRequest(first.toString))
+      first.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      second.send(server, RegisterServer.JoinRequest(second.toString))
+      second.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      first.send(server, RegisterServer.NewOneToOneChatRequest(second.toString))
+      first.expectMsgPF()({
+        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
+      })
     }
   }
 }
