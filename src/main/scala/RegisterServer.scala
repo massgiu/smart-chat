@@ -1,11 +1,12 @@
 import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, UserAndGroupActive}
 import RegisterServer._
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, Props}
 
 class RegisterServer extends Actor{
 
   var users: Map[String, ActorRef] = Map.empty
-  var groups: Map[String, List[String]] = Map.empty
+  var groups: Map[String, ActorRef] = Map.empty
+  var chats: List[ActorRef] = List.empty
 
   override def receive: Receive = {
     case JoinRequest(clientName) =>
@@ -15,16 +16,22 @@ class RegisterServer extends Actor{
       })(_ => sender ! AcceptRegistrationFromRegister(false))
     case NewGroupChatRequest(newGroupName) =>
       groups.find(_._1 == newGroupName).fold({
-        groups += (newGroupName -> List.empty)
+        groups += (newGroupName -> ActorRef.noSender)
         sender ! AcceptRegistrationFromRegister(true)
       })(_ => sender ! AcceptRegistrationFromRegister(false))
     case AllUsersAndGroupsRequest =>
       sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList)
     case NewOneToOneChatRequest(friendName) =>
       //fold(if_not_present)(if_present)
-      users.find(_._1 == friendName).fold(sender ! ResponseForChatCreation(false, Option.empty))(_ => sender ! ResponseForChatCreation(true, Option.empty))
+      users.find(_._1 == friendName).fold(sender ! ResponseForChatCreation(accept = false, Option.empty))(_ => {
+        val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], sender, users(friendName)), name = "welcomeServer1")
+        chats = newChatServer :: chats
+        sender ! ResponseForChatCreation(accept = true, Option(newChatServer))
+      })
     case JoinGroupChatRequest(group) =>
-      groups.find(_._1 == group).fold(sender ! ResponseForChatCreation(false, Option.empty))(_ => sender ! ResponseForChatCreation(true, Option.empty))
+      groups.find(_._1 == group).fold(sender ! ResponseForChatCreation(accept = false, Option.empty))(_ => {
+        sender ! ResponseForChatCreation(accept = true, Option(groups(group)))
+      })
   }
 }
 
