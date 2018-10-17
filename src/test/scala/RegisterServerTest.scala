@@ -11,10 +11,12 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
   }
 
   "A Register Server" must {
-    "accept a new client asking to join it" in {
+    "accept a new client asking to join it and add it to the register" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer1")
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
+      server.tell(RegisterServer.AllUsersAndGroupsRequest, this.testActor)
+      expectMsg(UserAndGroupActive(List("name"),List()))
     }
     "refuse a new client asking to join it using another client's name" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer4")
