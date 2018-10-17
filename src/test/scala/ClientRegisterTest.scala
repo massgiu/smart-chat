@@ -16,7 +16,7 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
 
     "Accept Registration From Register" in {
       client.tell(AcceptRegistrationFromRegister(true),self)
-      expectNoMessage()
+      expectMsgClass(AllUsersAndGroupsRequest.getClass)
       client.tell(AcceptRegistrationFromRegister(false),self)
       expectNoMessage()
     }
