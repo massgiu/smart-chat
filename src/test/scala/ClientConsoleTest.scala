@@ -1,7 +1,5 @@
-import java.util
 
 import Client._
-import RegisterServer.{JoinGroupChatRequest, NewGroupChatRequest}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}

@@ -22,33 +22,31 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       */
 
       //Multiple request
-      def createTestMultipleActor(numActor: Int): Unit = {
-        def request(numTest:Int,listActor:List[TestProbe]):List[TestProbe] = numTest match {
+      def createTestWithMultipleActor(numActor: Int): Unit = {
+        def request(numTest:Int,listActor:List[Map[TestProbe,Boolean]]):List[Map[TestProbe,Boolean]] = numTest match {
           case 0 => listActor
           case _ => {
             val act = TestProbe(numTest.toString)
             val randomBooleanVar : Boolean = math.random <= 0.5
             act.send(client,Client.AcceptRegistrationFromRegister(randomBooleanVar))
-            randomBooleanVar match {
-              case true => act.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
-              case _ => act.expectNoMessage()
-            }
-            request(numTest-1,TestProbe(numTest.toString) :: listActor)
+            request(numTest-1,Map(act->randomBooleanVar) :: listActor)
           }
         }
-        /*
-        def testResponse(listActor:List[TestProbe]):List[TestProbe] = listActor.length match {
+
+        def testResponse(listActor:List[Map[TestProbe,Boolean]]):List[Map[TestProbe,Boolean]] = listActor.length match {
           case 0 => listActor
           case _ => {
-            listActor.head.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
+            val headMap = listActor.head
+            headMap(headMap.keys.head) match {
+              case true => headMap.keys.head.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
+              case _ => headMap.keys.head.expectNoMessage()
+            }
             testResponse(listActor.tail)
           }
         }
-        testResponse(request(numActor,List[TestProbe]()))
-        */
-        request(numActor,List[TestProbe]())
+        testResponse(request(numActor,List[Map[TestProbe,Boolean]]()))
       }
-      createTestMultipleActor(10)
+      createTestWithMultipleActor(3)
     }
 
     "Get users list and chat groups list" in {
