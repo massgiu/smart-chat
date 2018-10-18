@@ -1,5 +1,4 @@
 import Client._
-import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, NewGroupChatRequest}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -14,7 +13,7 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
   "A client when interacts with register" must {
     val client = system.actorOf(Props[Client], name = "client")
 
-    "Accept Registration From Register" in {
+    "Get the response about registration from Register" in {
       /*
       client.tell(AcceptRegistrationFromRegister(true),self)
       expectMsgClass(AllUsersAndGroupsRequest.getClass)
