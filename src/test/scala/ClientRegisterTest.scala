@@ -1,7 +1,7 @@
 import Client._
 import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, NewGroupChatRequest}
 import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
@@ -11,14 +11,45 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
     TestKit.shutdownActorSystem(system)
   }
 
-  "A client whe interacts with register" must {
+  "A client when interacts with register" must {
     val client = system.actorOf(Props[Client], name = "client")
 
     "Accept Registration From Register" in {
+      /*
       client.tell(AcceptRegistrationFromRegister(true),self)
       expectMsgClass(AllUsersAndGroupsRequest.getClass)
       client.tell(AcceptRegistrationFromRegister(false),self)
       expectNoMessage()
+      */
+
+      //Multiple request
+      def createTestMultipleActor(numActor: Int): Unit = {
+        def request(numTest:Int,listActor:List[TestProbe]):List[TestProbe] = numTest match {
+          case 0 => listActor
+          case _ => {
+            val act = TestProbe(numTest.toString)
+            val randomBooleanVar : Boolean = math.random <= 0.5
+            act.send(client,Client.AcceptRegistrationFromRegister(randomBooleanVar))
+            randomBooleanVar match {
+              case true => act.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
+              case _ => act.expectNoMessage()
+            }
+            request(numTest-1,TestProbe(numTest.toString) :: listActor)
+          }
+        }
+        /*
+        def testResponse(listActor:List[TestProbe]):List[TestProbe] = listActor.length match {
+          case 0 => listActor
+          case _ => {
+            listActor.head.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
+            testResponse(listActor.tail)
+          }
+        }
+        testResponse(request(numActor,List[TestProbe]()))
+        */
+        request(numActor,List[TestProbe]())
+      }
+      createTestMultipleActor(10)
     }
 
     "Get users list and chat groups list" in {
@@ -26,7 +57,7 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       expectNoMessage()
     }
 
-    "Receive response for chat creation" in {
+    "Receive response for chat group creation" in {
       client.tell(ResponseForChatCreation(true, Option(self)),self)
       expectNoMessage()
       client.tell(ResponseForChatCreation(false,Option(self)),self)

@@ -24,13 +24,13 @@ class Client extends Actor{
 
     case UserAndGroupActive(userList, groupList)=> {
       /**
-        * Display data on console
+        * Display data on view/console
         */
     }
 
     case StringMessageFromServer(message) => {
       /**
-        * Display data on console
+        * Display data on view/console
         */
     }
 
@@ -40,7 +40,7 @@ class Client extends Actor{
 
     case AttachmentMessageFromServer(attachment : OneToOneChatServer.Attachment) =>{
       /**
-        * Display data on console
+        * Display data on view/console
         */
     }
 
