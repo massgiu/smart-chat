@@ -12,6 +12,10 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
     TestKit.shutdownActorSystem(system)
   }
 
+  override def beforeAll: Unit = {
+
+  }
+
   "A right interaction between client and server" must {
 
     "accept a new client asking to join it and add it to the register" in {
@@ -40,21 +44,23 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       })
 
       //Start chat bewtween two users
-
-      clientOne.send(testchatServer,Message("msgFromClientOne"))
-      clientTwo.expectMsgPF()({
-        case StringMessageFromServer("msgFromClientOne", messageNumber) if messageNumber.isValidLong => Unit
+      val firstMessageText = "msgFromClientOne"
+      clientOne.send(testchatServer,Message(firstMessageText))
+      val firstMessageIndex = clientTwo.expectMsgPF()({
+        case StringMessageFromServer(`firstMessageText`, messageNumber) => messageNumber
       })
       clientOne.expectMsgPF()({
-        case StringMessageFromServer("msgFromClientOne", messageNumber) if messageNumber.isValidLong => Unit
+        case StringMessageFromServer(`firstMessageText`, `firstMessageIndex`) => Unit
       })
 
-      clientTwo.send(testchatServer,Message("msgFromClientTwo"))
+      val secondMessageText = "msgFromClientTwo"
+      val secondMessageIndex = firstMessageIndex + 1
+      clientTwo.send(testchatServer,Message(secondMessageText))
       clientOne.expectMsgPF()({
-        case StringMessageFromServer("msgFromClientTwo", messageNumber) if messageNumber.isValidLong => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`) => Unit
       })
       clientTwo.expectMsgPF()({
-        case StringMessageFromServer("msgFromClientTwo", messageNumber) if messageNumber.isValidLong => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`) => Unit
       })
     }
 
