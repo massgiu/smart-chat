@@ -28,7 +28,7 @@ class Client extends Actor{
         */
     }
 
-    case StringMessageFromServer(message) => {
+    case StringMessageFromServer(message, messageNumber) => {
       /**
         * Display data on view/console
         */
@@ -38,13 +38,13 @@ class Client extends Actor{
       chatServer.tell(Message(message),self)
     }
 
-    case AttachmentMessageFromServer(attachment : OneToOneChatServer.Attachment) =>{
+    case AttachmentMessageFromServer(attachment, messageNumber) =>{
       /**
         * Display data on view/console
         */
     }
 
-    case AttachmentMessageFromConsole(attachment : OneToOneChatServer.Attachment) =>{
+    case AttachmentMessageFromConsole(attachment) =>{
       /**
         * Sends data to OneToOneChatServer
         */
@@ -87,9 +87,10 @@ object Client{
 
   /**
     * A message sent from server console
-    * @param message
+    * @param message attachment sent
+    * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class StringMessageFromServer(message : String)
+  final case class StringMessageFromServer(message: String, messageNumber: Long)
 
   /**
     * A message sent from client console
@@ -100,8 +101,9 @@ object Client{
   /**
     * An attachment sent from server
     * @param payload attachment sent
+    * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class AttachmentMessageFromServer(payload : Attachment)
+  final case class AttachmentMessageFromServer(payload : Attachment, messageNumber: Long)
 
   /**
     * An attachment sent from client console
