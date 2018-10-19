@@ -34,7 +34,7 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       //Request from ClientOne to create a oneToOne chat with ClientTwo
       clientOne.send(server,RegisterServer.NewOneToOneChatRequest("clientOne"))
       clientOne.expectMsgPF()({
-        case ResponseForChatCreation(false, actor) if actor.isDefined => Unit
+        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
       })
 
     }
