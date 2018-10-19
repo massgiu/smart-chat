@@ -48,7 +48,7 @@ class Client extends Actor{
       /**
         * Sends data to OneToOneChatServer
         */
-      chatServer.tell(Attachment(attachment.payload),self)
+       chatServer.tell(Attachment(attachment.payload),self)
     }
 
     case CreateGroupRequestFromConsole(groupName : String) => {
