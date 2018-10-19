@@ -48,7 +48,7 @@ class Client extends Actor{
       /**
         * Sends data to OneToOneChatServer
         */
-       chatServer.tell(Attachment(attachment.payload),self)
+       chatServer.tell(Attachment(attachment),self)
     }
 
     case CreateGroupRequestFromConsole(groupName : String) => {
@@ -103,13 +103,13 @@ object Client{
     * @param payload attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class AttachmentMessageFromServer(payload : Attachment, messageNumber: Long)
+  final case class AttachmentMessageFromServer(payload : AttachmentContent, messageNumber: Long)
 
   /**
     * An attachment sent from client console
     * @param payload attachment sent
     */
-  final case class AttachmentMessageFromConsole(payload : Attachment)
+  final case class AttachmentMessageFromConsole(payload : AttachmentContent)
 
   /**
     * Request to create a chat a group from client console

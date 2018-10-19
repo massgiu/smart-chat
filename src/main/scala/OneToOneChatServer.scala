@@ -9,10 +9,10 @@ class OneToOneChatServer(one: ActorRef, two: ActorRef) extends Actor {
   private var messageNumber: Long = 0
 
   override def receive: Receive = {
-    case Message(text) => sender() match {
-      case `memberOne` => messageNumber += 1; memberTwo ! StringMessageFromServer(text, messageNumber)
-      case `memberTwo` => messageNumber += 1; memberOne ! StringMessageFromServer(text, messageNumber)
-    }
+    case Message(text) =>
+      messageNumber += 1
+      memberOne ! StringMessageFromServer(text, messageNumber)
+      memberTwo ! StringMessageFromServer(text, messageNumber)
     case _ => println("unknown message")
   }
 

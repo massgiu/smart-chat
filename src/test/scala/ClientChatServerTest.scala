@@ -20,7 +20,7 @@ class ClientChatServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitS
     }
 
     "Receive attachment from chat server" in {
-      client.tell(AttachmentMessageFromServer,self)
+      client.tell(AttachmentMessageFromServer(new AttachmentContent(), 0),self)
       expectNoMessage()
     }
 
