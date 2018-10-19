@@ -23,30 +23,30 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
 
       //Multiple request
       def createTestWithMultipleActor(numActor: Int): Unit = {
-        def request(numTest:Int,listActor:List[Map[TestProbe,Boolean]]):List[Map[TestProbe,Boolean]] = numTest match {
-          case 0 => listActor
-          case _ => {
+        def request(numTest:Int,listActor:List[(TestProbe,Boolean)]):List[(TestProbe,Boolean)] = numTest match {
+          case a:Int if a> 0 => {
             val act = TestProbe(numTest.toString)
             val randomBooleanVar : Boolean = math.random <= 0.5
             act.send(client,Client.AcceptRegistrationFromRegister(randomBooleanVar))
-            request(numTest-1,Map(act->randomBooleanVar) :: listActor)
+            request(numTest-1,(act,randomBooleanVar) :: listActor)
           }
+          case _ => listActor
         }
 
-        def testResponse(listActor:List[Map[TestProbe,Boolean]]):List[Map[TestProbe,Boolean]] = listActor.length match {
+        def testResponse(listActor:List[(TestProbe,Boolean)]):List[(TestProbe,Boolean)] = listActor.length match {
           case 0 => listActor
           case _ => {
-            val headMap = listActor.head
-            headMap(headMap.keys.head) match {
-              case true => headMap.keys.head.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
-              case _ => headMap.keys.head.expectNoMessage()
+            val tupleHead = listActor.head
+            tupleHead._2 match {
+              case true => tupleHead._1.expectMsgClass(RegisterServer.AllUsersAndGroupsRequest.getClass)
+              case _ => tupleHead._1.expectNoMessage()
             }
             testResponse(listActor.tail)
           }
         }
-        testResponse(request(numActor,List[Map[TestProbe,Boolean]]()))
+        testResponse(request(numActor,List[(TestProbe,Boolean)]()))
       }
-      createTestWithMultipleActor(3)
+      createTestWithMultipleActor(10)
     }
 
     "Get users list and chat groups list" in {
