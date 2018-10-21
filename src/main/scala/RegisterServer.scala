@@ -15,23 +15,31 @@ class RegisterServer extends Actor{
         sender ! AcceptRegistrationFromRegister(true)
       })(_ => sender ! AcceptRegistrationFromRegister(false))
     case NewGroupChatRequest(newGroupName) =>
-      groups.find(_._1 == newGroupName).fold({
-        groups += (newGroupName -> ActorRef.noSender)
+      val onFail = () => sender ! AcceptRegistrationFromRegister(false)
+      ifSenderPresentOrElse(() => groups.find(_._1 == newGroupName).fold({
+        groups += (newGroupName -> ActorRef.noSender) //noSender will be substituted by the groupchatserver
         sender ! AcceptRegistrationFromRegister(true)
-      })(_ => sender ! AcceptRegistrationFromRegister(false))
+      })(_ => onFail()), onFail)
     case AllUsersAndGroupsRequest =>
-      sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList)
+      ifSenderPresentOrElse(() => sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList), () => sender ! UserAndGroupActive(List.empty, List.empty))
     case NewOneToOneChatRequest(friendName) =>
-      //fold(if_not_present)(if_present)
-      users.find(_._1 == friendName).fold(sender ! ResponseForChatCreation(accept = false, Option.empty))(_ => {
-        val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], sender, users(friendName)), name = "welcomeServer1")
+      val onFail = () => sender ! ResponseForChatCreation(accept = false, Option.empty)
+      ifSenderPresentOrElse(() => users.find(_._1 == friendName).fold(onFail())(_ => {
+        val friendRef = users(friendName)
+        val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], sender, friendRef), name = "OneToOne" + friendName)
         chats = newChatServer :: chats
         sender ! ResponseForChatCreation(accept = true, Option(newChatServer))
-      })
+      }), onFail)
     case JoinGroupChatRequest(group) =>
-      groups.find(_._1 == group).fold(sender ! ResponseForChatCreation(accept = false, Option.empty))(_ => {
+      val onFail = () => sender ! ResponseForChatCreation(accept = false, Option.empty)
+      ifSenderPresentOrElse(() => groups.find(_._1 == group).fold(onFail())(_ => {
         sender ! ResponseForChatCreation(accept = true, Option(groups(group)))
-      })
+      }), onFail)
+  }
+
+  def ifSenderPresentOrElse(ifPresent: () => Unit, ifNotPresent: () => Unit): Unit = {
+    //fold(if_not_present)(if_present)
+    users.values.find(_ == sender).fold(ifNotPresent())(_ => ifPresent())
   }
 }
 

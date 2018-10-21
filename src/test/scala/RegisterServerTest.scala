@@ -43,5 +43,14 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
         case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
       })
     }
+    "Respond to a client when it wants to create a new group chat" in {
+      val server = system.actorOf(Props[RegisterServer], name = "welcomeServer5")
+      server.tell(RegisterServer.JoinRequest("name"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(true))
+      server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(true))
+      server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
+      expectMsg(AcceptRegistrationFromRegister(false))
+    }
   }
 }
