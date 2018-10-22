@@ -88,11 +88,17 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(false))
 
+      //ClientOne create a oneToOnechatGroup with an inexistent user
+      clientOne.send(server,RegisterServer.NewOneToOneChatRequest("inexistentClient"))
+      clientOne.expectMsgPF()({
+        case ResponseForChatCreation(false, oneToOneServer) => Unit
+      })
+
       //ClientOne create a chatGroup with same group name
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(false))
 
-      //ClientOne request to join to a inexistent chat group
+      //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
       clientOne.expectMsgPF()({
         case ResponseForChatCreation(false, chatGroupServer) => Unit
