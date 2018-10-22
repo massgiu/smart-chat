@@ -103,10 +103,10 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
 
     }
 
-    "refuse a client request to create an oneToOne chat with an inexisting user" in {
+    "refuse a client request to create an oneToOne chat with an unregistered user" in {
 
       //ClientOne create a oneToOnechatGroup with an inexistent user
-      clientOne.send(server, RegisterServer.NewOneToOneChatRequest("inexistentClient"))
+      clientOne.send(server, RegisterServer.NewOneToOneChatRequest("unregisteredUser"))
       clientOne.expectMsgPF()({
         case ResponseForChatCreation(false, oneToOneServer) => Unit
       })
@@ -119,7 +119,7 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       clientOne.expectMsg(AcceptRegistrationFromRegister(false))
     }
 
-    "refuse a client request to join to a chat group chat with an inexisting " in {
+    "refuse a client request to join to a chat group with an inexisting name" in {
 
       //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
