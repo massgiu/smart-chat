@@ -48,9 +48,13 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
-      expectMsg(AcceptRegistrationFromRegister(true))
+      expectMsgPF()({
+        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
+      })
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
-      expectMsg(AcceptRegistrationFromRegister(false))
+      expectMsgPF()({
+        case ResponseForChatCreation(false, actor) if actor.isEmpty => Unit
+      })
     }
   }
 }
