@@ -126,7 +126,7 @@ object Client{
   final case class AttachmentMessageFromConsole(payload : AttachmentContent, recipient : String)
 
   /**
-    * 
+    *
     * @param payload
     * @param messageNumber
     * @param sender
@@ -156,6 +156,6 @@ object Client{
     * Response from server about the reference of an oneToOne or group chat
     * @param actRef
     */
-  final case class ResponseForServerRefRequest(actRef : ActorRef)
+  final case class ResponseForServerRefRequest(actRef : Option[ActorRef])
 
 }
