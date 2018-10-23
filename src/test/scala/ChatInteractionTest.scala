@@ -16,7 +16,7 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
 
   }
 
-  "A right interaction between client and server" must {
+  "Server when interacts with clients" must {
 
     val clientOne = TestProbe("clientOne")
     val clientTwo = TestProbe("clientTwo")
