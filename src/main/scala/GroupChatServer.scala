@@ -12,7 +12,7 @@ class GroupChatServer(m: Set[ActorRef] = Set.empty) extends Actor {
     case RemoveMember(member) => members -= member
     case GroupMessage(text) =>
       messageNumber += 1
-      members.foreach(m => m ! StringMessageFromServer(text, messageNumber))
+      members.foreach(m => m ! StringMessageFromServer(text, messageNumber, "")) //"" is wrong
     case _ => println("unknown message")
   }
 

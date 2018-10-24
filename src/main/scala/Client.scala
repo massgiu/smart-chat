@@ -68,7 +68,7 @@ class Client extends Actor{
     }
 
     case ResponseForServerRefRequest(actref) => {
-      chatServer = actref
+      chatServer = actref.get
     }
   }
 
