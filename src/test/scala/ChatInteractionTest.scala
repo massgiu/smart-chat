@@ -1,6 +1,6 @@
-import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, StringMessageFromServer, UserAndGroupActive}
+import Client._
 import OneToOneChatServer.Message
-import RegisterServer.{JoinGroupChatRequest, JoinRequest}
+import RegisterServer.{ContainsMembers, GetServerRef, JoinGroupChatRequest, JoinRequest}
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -32,39 +32,44 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
     }
 
     "accept a client request to create an oneToOneChat, accept the request of a second Client to join to it and then exchange messages between them" in {
-      val clientOne = TestProbe("clientOne")
-      val clientTwo = TestProbe("clientTwo")
+      val nameOne = "clientOne"
+      val nameTwo = "clientTwo"
+      val clientOne = TestProbe(nameOne)
+      val clientTwo = TestProbe(nameTwo)
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer2")
 
-      clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
+      clientOne.send(server, RegisterServer.JoinRequest(nameOne))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
-      clientTwo.send(server, RegisterServer.JoinRequest("clientTwo"))
+      clientTwo.send(server, RegisterServer.JoinRequest(nameTwo))
       clientTwo.expectMsg(AcceptRegistrationFromRegister(true))
 
       //Request from ClientOne to create a oneToOne chat with ClientTwo
-      clientOne.send(server, RegisterServer.NewOneToOneChatRequest("clientTwo"))
+      clientOne.send(server, RegisterServer.NewOneToOneChatRequest(nameTwo))
+      clientOne.expectMsg(ResponseForChatCreation(true))
+
+      clientOne.send(server, GetServerRef(nameTwo))
       val testchatServer = clientOne.expectMsgPF()({
-        case ResponseForChatCreation(true, oneToOneServer) if oneToOneServer.isDefined => oneToOneServer.get
+        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
       })
 
       //Start chat bewtween two users
       val firstMessageText = "msgFromClientOne"
       clientOne.send(testchatServer, Message(firstMessageText))
       val firstMessageIndex = clientTwo.expectMsgPF()({
-        case StringMessageFromServer(`firstMessageText`, messageNumber) => messageNumber
+        case StringMessageFromServer(`firstMessageText`, messageNumber, `nameOne`) => messageNumber
       })
       clientOne.expectMsgPF()({
-        case StringMessageFromServer(`firstMessageText`, `firstMessageIndex`) => Unit
+        case StringMessageFromServer(`firstMessageText`, `firstMessageIndex`, `nameOne`) => Unit
       })
 
       val secondMessageText = "msgFromClientTwo"
       val secondMessageIndex = firstMessageIndex + 1
       clientTwo.send(testchatServer, Message(secondMessageText))
       clientOne.expectMsgPF()({
-        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`) => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`) => Unit
       })
       clientTwo.expectMsgPF()({
-        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`) => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`) => Unit
       })
     }
 
@@ -80,21 +85,15 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
 
       //Request from ClientOne to create a chatGroup
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(true))
 
       //Request from ClientOne to join to chatGroup named "chatGroupName"
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("chatGroupName"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(true, chatGroupServer) if chatGroupServer.isDefined => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(true))
 
       //Request from ClientTwo to join to chatGroup named "chatGroupName"
       clientTwo.send(server, RegisterServer.JoinGroupChatRequest("chatGroupName"))
-      clientTwo.expectMsgPF()({
-        case ResponseForChatCreation(true, chatGroupServer) if chatGroupServer.isDefined => Unit
-      })
+      clientTwo.expectMsg(ResponseForChatCreation(true))
     }
 
   }

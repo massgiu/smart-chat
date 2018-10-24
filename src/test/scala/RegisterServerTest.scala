@@ -39,22 +39,16 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       second.send(server, RegisterServer.JoinRequest(second.toString))
       second.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
       first.send(server, RegisterServer.NewOneToOneChatRequest(second.toString))
-      first.expectMsgPF()({
-        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
-      })
+      first.expectMsg(ResponseForChatCreation(true))
     }
     "Respond to a client when it wants to create a new group chat" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer5")
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
-      expectMsgPF()({
-        case ResponseForChatCreation(true, actor) if actor.isDefined => Unit
-      })
+      expectMsg(ResponseForChatCreation(true))
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
-      expectMsgPF()({
-        case ResponseForChatCreation(false, actor) if actor.isEmpty => Unit
-      })
+      expectMsg(ResponseForChatCreation(false))
     }
     "refuse a client request, without user name, to register to server" in {
       val clientWithoutUserName = TestProbe("clientWithoutUserName")
@@ -71,9 +65,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
       //ClientOne create a oneToOnechatGroup with an inexistent user
       clientOne.send(server, RegisterServer.NewOneToOneChatRequest("unregisteredUser"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(false, oneToOneServer) => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(false))
     }
     "refuse a client request to create a group chat with a name already used" in {
       val clientOne = TestProbe("clientOne")
@@ -82,13 +74,9 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
       //ClientOne create a chatGroup with same group name
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(true, chatserver) if chatserver.isDefined => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(true))
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(false, chatserver) if chatserver.isEmpty => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(false))
     }
     "refuse a client request to join to a chat group with an inexisting name" in {
       val clientOne = TestProbe("clientOne")
@@ -97,9 +85,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
       //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
-      clientOne.expectMsgPF()({
-        case ResponseForChatCreation(false, chatGroupServer) => Unit
-      })
+      clientOne.expectMsg(ResponseForChatCreation(false))
     }
   }
 }

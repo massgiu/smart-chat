@@ -55,9 +55,9 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
     }
 
     "Receive response for chat group creation" in {
-      client.tell(ResponseForChatCreation(true, Option(self)),self)
+      client.tell(ResponseForChatCreation(true),self)
       expectNoMessage()
-      client.tell(ResponseForChatCreation(false,Option(self)),self)
+      client.tell(ResponseForChatCreation(false),self)
       expectNoMessage()
     }
   }

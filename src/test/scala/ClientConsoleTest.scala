@@ -15,7 +15,7 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySpec")) with ImplicitSend
     val client = system.actorOf(Props[Client], name = "client")
 
     "Receive message from client console" in {
-      client.tell(StringMessageFromConsole("testMessage"),self)
+      client.tell(StringMessageFromConsole("testMessage", "recipient"),self)
       //A message is sent to ChatServer
       expectNoMessage()
     }
