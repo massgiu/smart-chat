@@ -57,10 +57,10 @@ class RegisterServer extends Actor{
   }
 
   def findChatServerForMembers(senderName: String, friendName: String, ifFound: ActorRef => Any): Any = {
-    chats.map(c => c.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers])
-      .foreach(future => future.onComplete({
+    chats.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
+      .foreach(chatServerAndFuture => chatServerAndFuture._2.onComplete({
         case Success(result) => result match {
-          case ContainsMembers(server, true) => ifFound(server)
+          case ContainsMembers(true) => ifFound(chatServerAndFuture._1)
         }
       }))
   }
@@ -85,5 +85,5 @@ object RegisterServer {
   case class NewGroupChatRequest(newGroupName:String)
   case class JoinGroupChatRequest(group:String)
   case class GetServerRef(friendNname:String)
-  case class ContainsMembers(server: ActorRef, trueOrFalse: Boolean)
+  case class ContainsMembers(trueOrFalse: Boolean)
 }

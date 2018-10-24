@@ -16,9 +16,9 @@ class OneToOneChatServer(one: (String, ActorRef), two: (String, ActorRef)) exten
       memberTwo._2 ! StringMessageFromServer(text, messageNumber, senderName)
     case DoesContainsMembers(firstMemberName, secondMemberName) =>
       if ((memberOne._1 == firstMemberName && memberTwo._1 == secondMemberName) || (memberTwo._1 == firstMemberName && memberOne._1 == secondMemberName))
-        sender ! ContainsMembers(self, trueOrFalse = true)
+        sender ! ContainsMembers(trueOrFalse = true)
       else
-        sender ! ContainsMembers(self, trueOrFalse = false)
+        sender ! ContainsMembers(trueOrFalse = false)
     case _ => println("unknown message")
   }
 
