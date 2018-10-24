@@ -49,19 +49,21 @@ class RegisterServer extends Actor{
       }), onFail)
     case GetServerRef(friendName) =>
       val clientWhoAsked = sender
-      findChatServerForMembers(senderName, friendName, server => clientWhoAsked ! ResponseForServerRefRequest(Option(server)))
+      findChatServerForMembers(senderName, friendName, server => clientWhoAsked ! ResponseForServerRefRequest(Option(server)), () => ResponseForServerRefRequest(Option.empty))
   }
 
   def senderName: String = {
     users.find(_._2 == sender).map(u => u._1).get
   }
 
-  def findChatServerForMembers(senderName: String, friendName: String, ifFound: ActorRef => Any): Any = {
+  def findChatServerForMembers(senderName: String, friendName: String, ifFound: ActorRef => Any, ifNotFound: () => Unit): Any = {
     chats.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
       .foreach(chatServerAndFuture => chatServerAndFuture._2.onComplete({
         case Success(result) => result match {
           case ContainsMembers(true) => ifFound(chatServerAndFuture._1)
+          case _ => ifNotFound()
         }
+        case _ => ifNotFound()
       }))
   }
 
