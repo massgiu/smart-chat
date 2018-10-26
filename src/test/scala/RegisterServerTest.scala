@@ -109,11 +109,13 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientFour.send(server, JoinRequest(nameFour))
       clientFour.expectMsg(AcceptRegistrationFromRegister(true))
 
-      //clientOne tries to get two non-existing chat servers
+      //clientOne tries to get two non-existing chat servers and to create an already-existing chat server
       clientOne.send(server, GetServerRef(nameTwo))
       clientOne.expectMsg(ResponseForServerRefRequest(Option.empty))
       clientOne.send(server, NewOneToOneChatRequest(nameTwo))
       clientOne.expectMsg(ResponseForChatCreation(true))
+      clientOne.send(server, NewOneToOneChatRequest(nameTwo))
+      clientOne.expectMsg(ResponseForChatCreation(false))
       clientOne.send(server, GetServerRef("clientFive"))
       clientOne.expectMsg(ResponseForServerRefRequest(Option.empty))
 
