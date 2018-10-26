@@ -1,4 +1,5 @@
-import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, UserAndGroupActive}
+import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, ResponseForServerRefRequest, UserAndGroupActive}
+import RegisterServer.{GetServerRef, JoinRequest, NewOneToOneChatRequest}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -86,6 +87,47 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
       clientOne.expectMsg(ResponseForChatCreation(false))
+    }
+    "send an empty option when a client asks for a non-existing chat server and send the right one when two chat server are present" in {
+      val nameOne = "clientOne"
+      val nameTwo = "clientTwo"
+      val nameThree = "clientThree"
+      val nameFour = "clientFour"
+      val clientOne = TestProbe(nameOne)
+      val clientTwo = TestProbe(nameTwo)
+      val clientThree = TestProbe(nameThree)
+      val clientFour = TestProbe(nameFour)
+      val server = system.actorOf(Props[RegisterServer], name = "welcomeServer10")
+
+      //clients register to server
+      clientOne.send(server, JoinRequest(nameOne))
+      clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientTwo.send(server, JoinRequest(nameTwo))
+      clientTwo.expectMsg(AcceptRegistrationFromRegister(true))
+      clientThree.send(server, JoinRequest(nameThree))
+      clientThree.expectMsg(AcceptRegistrationFromRegister(true))
+      clientFour.send(server, JoinRequest(nameFour))
+      clientFour.expectMsg(AcceptRegistrationFromRegister(true))
+
+      //clientOne tries to get two non-existing chat servers
+      clientOne.send(server, GetServerRef(nameTwo))
+      clientOne.expectMsg(ResponseForServerRefRequest(Option.empty))
+      clientOne.send(server, NewOneToOneChatRequest(nameTwo))
+      clientOne.expectMsg(ResponseForChatCreation(true))
+      clientOne.send(server, GetServerRef("clientFive"))
+      clientOne.expectMsg(ResponseForServerRefRequest(Option.empty))
+
+      //clientThree creates a new chat with clientFour, and the relative chat server is different from the one
+      //used by clientOne and clientTwo
+      clientOne.send(server, GetServerRef(nameTwo))
+      val serverClientOneAndTwo = clientOne.expectMsgPF()({case ResponseForServerRefRequest(chatServer) => chatServer})
+      clientThree.send(server, NewOneToOneChatRequest(nameFour))
+      clientThree.expectMsg(ResponseForChatCreation(true))
+      clientThree.send(server, GetServerRef(nameFour))
+      val serverClientThreeAndFour = clientThree.expectMsgPF()({case ResponseForServerRefRequest(chatServer) => chatServer})
+      println("OneAndTwo: " + serverClientOneAndTwo)
+      println("ThreeAndFour: " + serverClientThreeAndFour)
+      assert(serverClientOneAndTwo != serverClientThreeAndFour)
     }
   }
 }

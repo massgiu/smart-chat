@@ -4,6 +4,8 @@ import RegisterServer._
 import akka.actor.{Actor, ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
+
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Success
 
@@ -35,12 +37,16 @@ class RegisterServer extends Actor{
     case AllUsersAndGroupsRequest =>
       ifSenderRegisteredOrElse(() => sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList), () => sender ! UserAndGroupActive(List.empty, List.empty))
     case NewOneToOneChatRequest(friendName) =>
-      val onFail = () => sender ! ResponseForChatCreation(accept = false)
+      val clientWhoAsked = sender
+      val localSenderName = senderName
+      val onFail = () => clientWhoAsked ! ResponseForChatCreation(accept = false)
       ifSenderRegisteredOrElse(() => users.find(_._1 == friendName).fold(onFail())(_ => {
-        val friendRef = users(friendName)
-        val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (senderName, sender), (friendName, friendRef)))
-        chats = newChatServer :: chats
-        sender ! ResponseForChatCreation(accept = true)
+        findChatServerForMembers(localSenderName, friendName, _ => onFail(), () => {
+          val friendRef = users(friendName)
+          val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (localSenderName, clientWhoAsked), (friendName, friendRef)))
+          chats = newChatServer :: chats
+          clientWhoAsked ! ResponseForChatCreation(accept = true)
+        })
       }), onFail)
     case JoinGroupChatRequest(group) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
@@ -49,7 +55,8 @@ class RegisterServer extends Actor{
       }), onFail)
     case GetServerRef(friendName) =>
       val clientWhoAsked = sender
-      findChatServerForMembers(senderName, friendName, server => clientWhoAsked ! ResponseForServerRefRequest(Option(server)), () => ResponseForServerRefRequest(Option.empty))
+      val localSenderName = senderName
+      findChatServerForMembers(localSenderName, friendName, server => clientWhoAsked ! ResponseForServerRefRequest(Option(server)), () => clientWhoAsked ! ResponseForServerRefRequest(Option.empty))
   }
 
   def senderName: String = {
@@ -57,14 +64,14 @@ class RegisterServer extends Actor{
   }
 
   def findChatServerForMembers(senderName: String, friendName: String, ifFound: ActorRef => Any, ifNotFound: () => Unit): Any = {
-    chats.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
-      .foreach(chatServerAndFuture => chatServerAndFuture._2.onComplete({
-        case Success(result) => result match {
-          case ContainsMembers(true) => ifFound(chatServerAndFuture._1)
-          case _ => ifNotFound()
-        }
-        case _ => ifNotFound()
-      }))
+    chats match {
+      case a if a.nonEmpty =>
+        Future.sequence(a.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
+          .map(chatServerAndFuture => chatServerAndFuture._2.map(future => (chatServerAndFuture._1, future.trueOrFalse))))
+          .foreach(responseList => responseList.find(chatServerAndResponse => chatServerAndResponse._2)
+            .fold(ifNotFound())(chatServerAndResponse => ifFound(chatServerAndResponse._1)))
+      case _ => ifNotFound()
+    }
   }
 
   def ifSenderRegisteredOrElse(ifPresent: () => Unit, ifNotPresent: () => Unit): Unit = {
