@@ -39,7 +39,7 @@
                             <graphic>
                                 <ImageView fx:id="attachmentView" fitHeight="24.0" fitWidth="24.0" pickOnBounds="true" preserveRatio="true">
                                     <image>
-                                        <Image url="@../images/attachment.png" />
+                                        <Image url="@../img/attachment.png" />
                                     </image>
                                 </ImageView>
                             </graphic></Button>
@@ -104,7 +104,7 @@
                     <children>
                         <ImageView fx:id="settingsButton" fitHeight="23.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" styleClass="button">
                             <image>
-                                <Image url="@../images/settings.png" />
+                                <Image url="@../img/settings.png" />
                             </image>
                             <HBox.margin>
                                 <Insets right="30.0" top="30.0" />
@@ -115,7 +115,7 @@
                         </ImageView>
                         <ImageView fx:id="closeButton" fitHeight="22.0" fitWidth="21.0" onMousePressed="#closeApplication" pickOnBounds="true" preserveRatio="true" styleClass="button">
                             <image>
-                                <Image url="@../images/close.png" />
+                                <Image url="@../img/close.png" />
                             </image>
                             <HBox.margin>
                                 <Insets right="30.0" top="30.0" />
@@ -132,7 +132,7 @@
                     <children>
                         <ImageView fx:id="userImageView" fitHeight="69.0" fitWidth="59.0" pickOnBounds="true" preserveRatio="true">
                             <image>
-                                <Image url="@../images/default.png" />
+                                <Image url="@../img/default.png" />
                             </image>
                             <HBox.margin>
                                 <Insets left="10.0" top="10.0" />
