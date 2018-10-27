@@ -74,7 +74,7 @@
                         </Label>
                     </children>
                 </HBox>
-                <ListView fx:id="userList" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="255.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
+                <ListView fx:id="userListView" onMouseClicked="#userSelected" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="255.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
                 </ListView>
 
                 <HBox fx:id="activeGroupsHbox" minHeight="-Infinity" minWidth="-Infinity" prefHeight="50.0" prefWidth="217.0" stylesheets="@../styles/ListViewStyle.css">
@@ -92,7 +92,7 @@
                         </Label>
                     </children>
                 </HBox>
-                <ListView fx:id="groupList" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="245.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
+                <ListView fx:id="groupListView" onMouseClicked="#groupSelected" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="245.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
                 </ListView>
             </children>
         </VBox>

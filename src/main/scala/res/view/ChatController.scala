@@ -1,9 +1,13 @@
 package res.view
 
+import java.net.URL
+import java.util.ResourceBundle
+
 import javafx.application.Application
+import javafx.collections.{FXCollections, ObservableList}
 import javafx.event.ActionEvent
-import javafx.fxml.FXMLLoader
-import javafx.scene.control.{Button, Label, TextArea, TextField}
+import javafx.fxml.{FXMLLoader, Initializable}
+import javafx.scene.control._
 import javafx.scene.image.ImageView
 import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
@@ -25,7 +29,7 @@ class LaunchClientView extends Application{
   }
 }
 
-class ChatController {
+class ChatController extends Initializable{
 
   import javafx.fxml.FXML
 
@@ -39,7 +43,31 @@ class ChatController {
   var sendButton : Button = _
   @FXML
   var attachmentButton : Button = _
+  @FXML
+  var groupListView : ListView[String] = _
+  @FXML
+  var userListView : ListView[String] = _
 
+  val userList: ObservableList[String] = FXCollections.observableArrayList("Anne","John","Mark", "Tom","Paul")
+  val groupList: ObservableList[String] = FXCollections.observableArrayList("groupA", "groupB", "groupC", "groupD")
+
+  override def initialize(location: URL, resources: ResourceBundle): Unit = {
+    import javafx.scene.control.SelectionMode
+    userListView.setItems(userList)
+    userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+    groupListView.setItems(groupList)
+    groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+  }
+
+  @FXML
+  def userSelected(): Unit = {
+    println(userListView.getSelectionModel.getSelectedItem())
+  }
+
+  @FXML
+  def groupSelected(): Unit = {
+    println(groupListView.getSelectionModel.getSelectedItem())
+  }
 
   def closeButtonAction(event:ActionEvent): Unit ={
     val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
