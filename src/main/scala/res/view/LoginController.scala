@@ -8,11 +8,11 @@ import javafx.scene.control.{Button, Label, TextField}
 import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 
-object LaunchClient extends App {
-  Application.launch(classOf[LaunchClient], args: _*)
+object LaunchClientLogin extends App {
+  Application.launch(classOf[LaunchClientLogin], args: _*)
 }
 
-class LaunchClient extends Application{
+class LaunchClientLogin extends Application{
   override def start(primaryStage: Stage): Unit = {
 
     val root: Parent = FXMLLoader.load(getClass().getResource("/res/view/clientLogin.fxml"))
