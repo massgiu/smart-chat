@@ -13,7 +13,7 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
 
-<BorderPane fx:id="borderPane" maxWidth="350.0" minWidth="350.0" prefHeight="350.0" prefWidth="320.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1">
+<BorderPane fx:id="borderPane" maxWidth="350.0" minWidth="350.0" prefHeight="350.0" prefWidth="320.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="res.view.LoginController">
     <right>
         <GridPane BorderPane.alignment="CENTER">
             <columnConstraints>
@@ -31,7 +31,7 @@
                 <RowConstraints maxHeight="127.0" minHeight="0.0" prefHeight="36.0" valignment="CENTER" />
             </rowConstraints>
             <children>
-                <Button id="connectBtn" alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" stylesheets="@../styles/ButtonStyle.css" text="Connect" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                <Button id="connectButton" alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#loginButtonAction" stylesheets="@../styles/ButtonStyle.css" text="Connect" GridPane.columnIndex="1" GridPane.rowIndex="5" />
                 <Label text="Username: " textFill="#34a2ff" GridPane.rowIndex="3" />
                 <TextField fx:id="usernameTextfield" GridPane.columnIndex="1" GridPane.rowIndex="3" />
                 <StackPane GridPane.columnIndex="1" GridPane.rowIndex="1">
@@ -43,13 +43,13 @@
                         </ImageView>
                     </children>
                 </StackPane>
-                <Label fx:id="selectedPicture" text="Label" GridPane.rowIndex="1" />
+                <Label fx:id="messageLabel" text="message to display" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                 <HBox alignment="TOP_RIGHT" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="2">
                     <children>
 
-                        <Button fx:id="attachmentButton" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false" stylesheets="@../styles/ButtonStyle.css">
+                        <Button fx:id="closeButton" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#closeButtonAction" stylesheets="@../styles/ButtonStyle.css">
                             <graphic>
-                                <ImageView fx:id="attachmentView" fitHeight="24.0" fitWidth="24.0" pickOnBounds="true" preserveRatio="true" styleClass="..\styles\ButtonStyles.css">
+                                <ImageView fx:id="closeView" fitHeight="24.0" fitWidth="24.0" pickOnBounds="true" preserveRatio="true" styleClass="..\styles\ButtonStyles.css">
                                     <image>
                                         <Image url="@../img/close.png" />
                                     </image>
