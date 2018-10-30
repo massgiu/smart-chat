@@ -26,6 +26,7 @@ class RegisterServer extends Actor{
         users += (clientName -> sender)
         sender ! AcceptRegistrationFromRegister(true)
       })(_ => onFail()), onFail)
+    case Unjoin() =>
     case NewGroupChatRequest(newGroupName) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
       ifNewNameIsValidOrElse(newGroupName, () =>
@@ -89,6 +90,7 @@ class RegisterServer extends Actor{
 
 object RegisterServer {
   case class JoinRequest(clientName:String)
+  case class Unjoin()
   case class AllUsersAndGroupsRequest()
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest(newGroupName:String)
