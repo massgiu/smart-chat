@@ -20,8 +20,7 @@ object LaunchClientView extends App {
 class LaunchClientView extends Application{
   override def start(primaryStage: Stage): Unit = {
 
-    val root: Parent = FXMLLoader.load(getClass().getResource("/res/view/clientView.fxml"))
-
+    val root: Parent = FXMLLoader.load(getClass.getResource("/res/view/clientView.fxml"))
     val scene = new Scene(root)
     primaryStage.setTitle("Chat View")
     primaryStage.setScene(scene)
@@ -48,15 +47,11 @@ class ChatController extends Initializable{
   @FXML
   var userListView : ListView[String] = _
 
-  val userList: ObservableList[String] = FXCollections.observableArrayList("Anne","John","Mark", "Tom","Paul")
-  val groupList: ObservableList[String] = FXCollections.observableArrayList("groupA", "groupB", "groupC", "groupD")
+  var userList: ObservableList[String] = _
+  var groupList: ObservableList[String] = _
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
-    import javafx.scene.control.SelectionMode
-    userListView.setItems(userList)
-    userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
-    groupListView.setItems(groupList)
-    groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+
   }
 
   @FXML
@@ -87,7 +82,7 @@ class ChatController extends Initializable{
       val filePath =  selectFile.getAbsolutePath
       println(filePath)
     }
-    else System.out.println("File is not valid")
+    else println("File is not valid")
   }
 
 }

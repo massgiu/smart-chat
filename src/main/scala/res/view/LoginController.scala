@@ -15,7 +15,7 @@ object LaunchClientLogin extends App {
 class LaunchClientLogin extends Application{
   override def start(primaryStage: Stage): Unit = {
 
-    val root: Parent = FXMLLoader.load(getClass().getResource("/res/view/clientLogin.fxml"))
+    val root: Parent = FXMLLoader.load(getClass.getResource("/res/view/clientLogin.fxml"))
 
     val scene = new Scene(root)
     primaryStage.setTitle("Client Login")
