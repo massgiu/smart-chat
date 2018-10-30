@@ -26,7 +26,7 @@ class RegisterServer extends Actor{
         users += (clientName -> sender)
         sender ! AcceptRegistrationFromRegister(true)
       })(_ => onFail()), onFail)
-    case Unjoin() =>
+    case Unjoin() => ifSenderRegisteredOrElse(() => users -= senderName, () => Unit)
     case NewGroupChatRequest(newGroupName) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
       ifNewNameIsValidOrElse(newGroupName, () =>

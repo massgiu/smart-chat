@@ -1,5 +1,5 @@
 import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, ResponseForServerRefRequest, UserAndGroupActive}
-import RegisterServer.{GetServerRef, JoinRequest, NewOneToOneChatRequest}
+import RegisterServer._
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -30,6 +30,20 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer2")
       server.tell(RegisterServer.AllUsersAndGroupsRequest, this.testActor)
       expectMsgClass(classOf[UserAndGroupActive])
+    }
+    "delete a client when it wants to leave" in {
+      val first = TestProbe("first")
+      val second = TestProbe("second")
+      val server = system.actorOf(Props[RegisterServer], name = "welcomeServer11")
+      first.send(server, RegisterServer.JoinRequest("first"))
+      first.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      second.send(server, RegisterServer.JoinRequest("second"))
+      second.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      second.send(server, AllUsersAndGroupsRequest)
+      second.expectMsg(UserAndGroupActive(List("first", "second"), List.empty))
+      first.send(server, Unjoin())
+      second.send(server, AllUsersAndGroupsRequest)
+      second.expectMsg(UserAndGroupActive(List("second"), List.empty))
     }
     "Respond to a client when it wants to create a new one-to-one chat" in {
       val first = TestProbe("first")
