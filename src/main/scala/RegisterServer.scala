@@ -7,7 +7,7 @@ import akka.util.Timeout
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Success
+import MapExtension._
 
 class RegisterServer extends Actor{
 
@@ -20,21 +20,16 @@ class RegisterServer extends Actor{
   var chats: List[ActorRef] = List.empty
 
   override def receive: Receive = {
-    case JoinRequest(clientName) =>
-      val onFail = () => sender ! AcceptRegistrationFromRegister(false)
-      ifNewNameIsValidOrElse(clientName, () => users.find(_._1 == clientName).fold({
-        users += (clientName -> sender)
-        sender ! AcceptRegistrationFromRegister(true)
-      })(_ => onFail()), onFail)
+    case JoinRequest(clientName) => addNewUserAndAnswer(clientName, sender)
     case Unjoin() => ifSenderRegisteredOrElse(() => users -= senderName, () => Unit)
     case NewGroupChatRequest(newGroupName) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
       ifNewNameIsValidOrElse(newGroupName, () =>
-        ifSenderRegisteredOrElse(() => groups.find(_._1 == newGroupName).fold({
+        ifSenderRegisteredOrElse(() => groups.ifPresentOrElse(newGroupName, () => {
           val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Set(sender)))
           groups += (newGroupName -> newGroupChatServer) //noSender will be substituted by the groupchatserver
           sender ! ResponseForChatCreation(accept = true)
-        })(_ => onFail()), onFail), onFail)
+        }, _ => onFail()), onFail), onFail)
     case AllUsersAndGroupsRequest =>
       ifSenderRegisteredOrElse(() => sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList), () => sender ! UserAndGroupActive(List.empty, List.empty))
     case NewOneToOneChatRequest(friendName) =>
@@ -64,6 +59,14 @@ class RegisterServer extends Actor{
     users.find(_._2 == sender).map(u => u._1).get
   }
 
+  def addNewUserAndAnswer(clientName: String, clientRef: ActorRef): Unit = {
+    val onFail = () => clientRef ! AcceptRegistrationFromRegister(false)
+    ifNewNameIsValidOrElse(clientName, () => users.find(_._1 == clientName).fold({
+      users += (clientName -> clientRef)
+      clientRef ! AcceptRegistrationFromRegister(true)
+    })(_ => onFail()), onFail)
+  }
+
   def findChatServerForMembers(senderName: String, friendName: String, ifFound: ActorRef => Any, ifNotFound: () => Unit): Any = {
     chats match {
       case a if a.nonEmpty =>
@@ -85,6 +88,12 @@ class RegisterServer extends Actor{
       ifValid()
     else
       ifNotValid()
+  }
+}
+
+object MapExtension {
+  implicit class ExtendedMap(m: Map[String, ActorRef]) {
+    def ifPresentOrElse(key: String, ifNotPresent: () => Unit, ifPresent: ((String, ActorRef)) => Unit): Unit = m.find(keyValue => keyValue._1 == key).fold(ifNotPresent())(ifPresent)
   }
 }
 
