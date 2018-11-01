@@ -1,32 +1,50 @@
+import java.io.File
+
 import Client._
 import OneToOneChatServer.{Attachment, Message}
-import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, JoinRequest, NewGroupChatRequest}
-import akka.actor.{Actor, ActorRef, ActorSelection, Props}
+import RegisterServer._
+import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Props, Stash}
+import com.typesafe.config.ConfigFactory
+import javafx.application.Application
+import res.view.{LaunchClientLogin, LoginController}
 
-class Client extends Actor{
+class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
-  val register_address : String = new String
-  val register : ActorSelection  = context.actorSelection(register_address)
+  var users: List[String] = List()
+  var groups: List[String] = List()
+  var userRefMap: Map[String, ActorRef] = Map.empty
+  val registerFilePath : String = "src/main/scala/res/server.conf"
+
+  var register : ActorSelection  = _
   var chatServer : ActorRef = _
-  var myUserName : String = "TestName"
+  var clientAddress : String = _
 
     override def preStart():Unit = {
-      register.tell(JoinRequest(myUserName),self)
+      val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
+      val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
+      val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
+      register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
+      val path = completePath("",self.path.toString.split("/"),3)
+      clientAddress = system.provider.getDefaultAddress.toString + path
+      println("New Client @: " + clientAddress + " started!")
+      Application.launch(classOf[LaunchClientLogin],self.toString())
     }
 
     override def receive: Receive = {
 
     case AcceptRegistrationFromRegister(response) => {
       response match {
-        case true => sender.tell(AllUsersAndGroupsRequest,self)
+        case true => {
+          println("Connection accepted from server")
+          sender.tell(AllUsersAndGroupsRequest,self)
+        }
         case  _ => println("Connection refused")
       }
     }
 
     case UserAndGroupActive(userList, groupList)=> {
-      /**
-        * Display data on view/console
-        */
+      users = userList
+      groups = groupList
     }
 
     case StringMessageFromServer(message, userName,messageNumber) => {
@@ -35,8 +53,21 @@ class Client extends Actor{
         */
     }
 
-    case StringMessageFromConsole(message, userName) => {
-      chatServer.tell(Message(message),self)
+    case StringMessageFromConsole(message, senderName) => {
+      userRefMap.find(nameAndRef=>nameAndRef._1==senderName).fold({
+        register ! GetServerRef(senderName)
+        unstashAll()
+        context.become({
+          case ResponseForServerRefRequest(chatServer) => {
+            userRefMap += (senderName -> chatServer.get)
+            unstashAll()
+            context.unbecome()
+            self ! StringMessageFromConsole(message,senderName)
+          }
+          case _ => stash()
+        }, discardOld = false) // stack on top instead of replacing
+
+      })(nameAndRef => nameAndRef._2 ! Message(message))
     }
 
     case AttachmentMessageFromServer(attachment, userName, messageNumber) =>{
@@ -66,10 +97,25 @@ class Client extends Actor{
         case  _ => println("Chat creation refused!")
       }
     }
-
+    /*
     case ResponseForServerRefRequest(actref) => {
-      chatServer = actref.get
+      name_ref += (senderName -> actref)
     }
+    */
+
+    case LogInFromConsole(unserName) =>{
+      register ! JoinRequest(unserName)
+    }
+  }
+
+  def completePath(str: String, listSplitted:Array[String],stringToSkip:Int): String = {
+    def completeHelper(partial: String, partialCount: Int): String = {
+      if (partialCount < stringToSkip) completeHelper(partial, partialCount + 1)
+      else if (partialCount >= stringToSkip && partialCount<listSplitted.length)
+        completeHelper(partial + "/" + listSplitted(partialCount), partialCount + 1)
+      else partial
+    }
+    completeHelper(str, 0)
   }
 
 }
@@ -77,21 +123,21 @@ class Client extends Actor{
 object Client{
 
   /**
-    * Response about acceptance from server about client
+    * Get response about acceptance from server about client
     * registration request
     * @param accept response from server
     */
   final case class AcceptRegistrationFromRegister(accept: Boolean)
 
   /**
-    * Users list and active chat group list
+    * Get users list and active chat group list
     * @param userList username list
     * @param groupList chat group list
     */
   final case class UserAndGroupActive(userList: List[String], groupList : List[String])
 
   /**
-    * A message sent from server console
+    * Get a message sent from server console
     * @param message attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
@@ -107,20 +153,20 @@ object Client{
   final case class StringMessageFromGroupServer(message: String, messageNumber: Long, sender : String, group: String)
 
   /**
-    * A message sent from client console
+    * Get a message sent from client console
     * @param message message sent
     */
   final case class StringMessageFromConsole(message : String, recipient : String)
 
   /**
-    * An attachment sent from server
+    * Get an attachment sent from server
     * @param payload attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
   final case class AttachmentMessageFromServer(payload : AttachmentContent, messageNumber: Long, sender : String)
 
   /**
-    * An attachment sent from client console
+    * Get an attachment sent from client console
     * @param payload attachment sent
     */
   final case class AttachmentMessageFromConsole(payload : AttachmentContent, recipient : String)
@@ -153,9 +199,15 @@ object Client{
   final case class ResponseForChatCreation(accept : Boolean)
 
   /**
-    * Response from server about the reference of an oneToOne or group chat
+    * Get response from server about the reference of an oneToOne or group chat
     * @param actRef
     */
   final case class ResponseForServerRefRequest(actRef : Option[ActorRef])
+
+  /**
+    * Get username from LoginController
+    * @param userName
+    */
+  final case class LogInFromConsole(userName:String)
 
 }

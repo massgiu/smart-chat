@@ -13,7 +13,7 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
 
-<BorderPane fx:id="borderPane" maxWidth="350.0" minWidth="350.0" prefHeight="350.0" prefWidth="320.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="res.view.LoginController">
+<BorderPane fx:id="borderPane" maxWidth="350.0" minWidth="350.0" prefHeight="350.0" prefWidth="320.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1">
     <right>
         <GridPane BorderPane.alignment="CENTER">
             <columnConstraints>
