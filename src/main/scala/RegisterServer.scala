@@ -19,6 +19,10 @@ class RegisterServer extends Actor{
   var groups: Map[String, ActorRef] = Map.empty
   var chats: List[ActorRef] = List.empty
 
+  override def preStart(): Unit = {
+    println("RegisterServer started...waiting for new client")
+  }
+
   override def receive: Receive = {
     case JoinRequest(clientName) =>
       val onFail = () => sender ! AcceptRegistrationFromRegister(false)
