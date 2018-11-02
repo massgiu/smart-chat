@@ -27,7 +27,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val path = completePath("",self.path.toString.split("/"),3)
       clientAddress = system.provider.getDefaultAddress.toString + path
       println("New Client @: " + clientAddress + " started!")
-      Application.launch(classOf[LaunchClientLogin],self.toString())
+      //Application.launch(classOf[LaunchClientLogin],self.toString())
     }
 
     override def receive: Receive = {

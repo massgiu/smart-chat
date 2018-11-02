@@ -1,17 +1,20 @@
+import java.io.File
+
 import Client._
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, ExtendedActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll{
 
+  val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+
   override def afterAll: Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
   "A client when interacts with register" must {
-    val client = system.actorOf(Props[Client], name = "client")
 
     "Get the response about registration from Register" in {
       /*

@@ -1,6 +1,6 @@
 
 import Client._
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, ExtendedActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -12,7 +12,7 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySpec")) with ImplicitSend
   }
 
   "A client when interacts with a console/view" must {
-    val client = system.actorOf(Props[Client], name = "client")
+    val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
 
     "Receive message from client console" in {
       client.tell(StringMessageFromConsole("testMessage", "recipient"),self)
