@@ -17,16 +17,13 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
   var register : ActorSelection  = _
   var chatServer : ActorRef = _
-  var clientAddress : String = _
 
     override def preStart():Unit = {
       val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
       val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
       val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
       register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
-      val path = completePath("",self.path.toString.split("/"),3)
-      clientAddress = system.provider.getDefaultAddress.toString + path
-      println("New Client @: " + clientAddress + " started!")
+      println("New Client @: " + self.path + "/user/server" + " started!")
       //Application.launch(classOf[LaunchClientLogin],self.toString())
     }
 
@@ -41,18 +38,15 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case  _ => println("Connection refused")
       }
     }
-
     case UserAndGroupActive(userList, groupList)=> {
       users = userList
       groups = groupList
     }
-
     case StringMessageFromServer(message, userName,messageNumber) => {
       /**
         * Display data on view/console
         */
     }
-
     case StringMessageFromConsole(message, senderName) => {
       userRefMap.find(nameAndRef=>nameAndRef._1==senderName).fold({
         register ! GetServerRef(senderName)
@@ -69,31 +63,31 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
       })(nameAndRef => nameAndRef._2 ! Message(message))
     }
-
     case AttachmentMessageFromServer(attachment, userName, messageNumber) =>{
       /**
         * Display data on view/console
         */
     }
-
     case AttachmentMessageFromConsole(attachment, userName) =>{
       /**
         * Sends data to OneToOneChatServer
         */
        chatServer.tell(Attachment(attachment),self)
     }
-
     case CreateGroupRequestFromConsole(groupName : String) => {
       register.tell(NewGroupChatRequest(groupName),self)
     }
-
     case JoinGroupRequestFromConsole(groupName : String) => {
       register.tell(JoinGroupChatRequest(groupName),self)
     }
-
     case ResponseForChatCreation(response) => {
       response match {
-        case true => println("Chat creation done!")
+        case true => {
+          println("Chat creation done!")
+          /**
+            * Sends data to console
+            */
+        }
         case  _ => println("Chat creation refused!")
       }
     }
@@ -102,22 +96,11 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       name_ref += (senderName -> actref)
     }
     */
-
-    case LogInFromConsole(unserName) =>{
-      register ! JoinRequest(unserName)
+    case LogInFromConsole(userName) => userName match {
+      case username: String if username.length>0 => register ! JoinRequest(userName)
+      case _ => println("Invalid username")
     }
   }
-
-  def completePath(str: String, listSplitted:Array[String],stringToSkip:Int): String = {
-    def completeHelper(partial: String, partialCount: Int): String = {
-      if (partialCount < stringToSkip) completeHelper(partial, partialCount + 1)
-      else if (partialCount >= stringToSkip && partialCount<listSplitted.length)
-        completeHelper(partial + "/" + listSplitted(partialCount), partialCount + 1)
-      else partial
-    }
-    completeHelper(str, 0)
-  }
-
 }
 
 object Client{
