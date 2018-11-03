@@ -5,8 +5,6 @@ import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Props, Stash}
 import com.typesafe.config.ConfigFactory
-import javafx.application.Application
-import res.view.{LaunchClientLogin, LoginController}
 
 class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
@@ -25,6 +23,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
       println("New Client @: " + self.path + "/user/server" + " started!")
       //Application.launch(classOf[LaunchClientLogin],self.toString())
+      register ! JoinRequest("testB")
     }
 
     override def receive: Receive = {
@@ -42,21 +41,29 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       users = userList
       groups = groupList
     }
-    case StringMessageFromServer(message, userName,messageNumber) => {
+    case StringMessageFromServer(message, messageNumber,senderName) => {
       /**
         * Display data on view/console
         */
+      println(message + " from " + senderName)
     }
     case StringMessageFromConsole(message, senderName) => {
       userRefMap.find(nameAndRef=>nameAndRef._1==senderName).fold({
         register ! GetServerRef(senderName)
         unstashAll()
         context.become({
-          case ResponseForServerRefRequest(chatServer) => {
-            userRefMap += (senderName -> chatServer.get)
-            unstashAll()
-            context.unbecome()
-            self ! StringMessageFromConsole(message,senderName)
+          case ResponseForServerRefRequest(chatServer) => chatServer match {
+            case Some(serverRef)=> {
+              userRefMap += (senderName -> chatServer.get)
+              unstashAll()
+              context.unbecome()
+              self ! StringMessageFromConsole(message, senderName)
+            }
+            case _=> {
+              println("ChatServer unreachable")
+              unstashAll()
+              context.unbecome()
+            }
           }
           case _ => stash()
         }, discardOld = false) // stack on top instead of replacing
@@ -69,9 +76,6 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         */
     }
     case AttachmentMessageFromConsole(attachment, userName) =>{
-      /**
-        * Sends data to OneToOneChatServer
-        */
        chatServer.tell(Attachment(attachment),self)
     }
     case CreateGroupRequestFromConsole(groupName : String) => {
@@ -91,14 +95,35 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case  _ => println("Chat creation refused!")
       }
     }
-    /*
+
     case ResponseForServerRefRequest(actref) => {
-      name_ref += (senderName -> actref)
+      actref match {
+        case None => println("No ref value")
+        case _ => println(actref.get)
+      }
     }
-    */
+
     case LogInFromConsole(userName) => userName match {
-      case username: String if username.length>0 => register ! JoinRequest(userName)
+      case username: String if username.length>0 => {
+        register ! JoinRequest(userName)
+      }
       case _ => println("Invalid username")
+    }
+    case RequestForChatCreationFromConsole(friendName) => {
+      users.find(user => user==friendName).fold({
+      register ! AllUsersAndGroupsRequest
+      unstashAll()
+      context.become({
+        case UserAndGroupActive(userList, groupList)=> {
+          users = userList
+          groups = groupList
+          unstashAll()
+          context.unbecome()
+          self ! RequestForChatCreationFromConsole(friendName)
+        }
+        case _ => stash()
+      }, discardOld = false) // stack on top instead of replacing
+      })(user => register ! NewOneToOneChatRequest(user))
     }
   }
 }
@@ -192,5 +217,11 @@ object Client{
     * @param userName
     */
   final case class LogInFromConsole(userName:String)
+
+  /**
+    * Request to create a one to one chat from client console
+    * @param friendName username to chat with
+    */
+  final case class RequestForChatCreationFromConsole(friendName : String)
 
 }
