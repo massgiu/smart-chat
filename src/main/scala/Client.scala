@@ -96,12 +96,6 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case  _ => println("Chat creation refused!")
       }
     }
-    case ResponseForServerRefRequest(actref) => {
-      actref match {
-        case None => println("No ref value")
-        case _ => println(actref.get)
-      }
-    }
     case LogInFromConsole(userName) => userName match {
       case username: String if username.length>0 => {
         register ! JoinRequest(userName)
