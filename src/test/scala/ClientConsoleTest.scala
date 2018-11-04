@@ -68,30 +68,43 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySystem")) with ImplicitSe
       testActorB.expectMsg(Client.StringMessageFromServer("messageToUserC",1,"userD"))
     }
 
-    "if receives message from client console, it checks if recipient ref is stored" in {
-      
+    "if receives message from client console, it checks if recipient chatServer ref is stored and sends to chatserver" in {
+      implicit var system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
+      val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+
+      val logInconsoleC = TestProbe("logInConsoleC")
+      val testActorC = TestProbe("testActorC")
+
+      logInconsoleC.send(client,Client.LogInFromConsole("userE"))//JoinRequest("userE") sent to server
+      logInconsoleC.expectNoMessage()
+      testActorC.send(server,RegisterServer.JoinRequest("userF"))
+      testActorC.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      logInconsoleC.send(client,Client.RequestForChatCreationFromConsole("userF"))
+      logInconsoleC.expectNoMessage()
+      testActorC.send(client,Client.StringMessageFromConsole("messagetoUserE","userF"))
+      testActorC.expectMsg(Client.StringMessageFromServer("messagetoUserE",1,"userE"))
     }
 
     "if receives an attachment from client console" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorC = TestProbe("testActorC")
-      testActorC.send(client,Client.AttachmentMessageFromConsole)
+      val testActorD = TestProbe("testActorD")
+      testActorD.send(client,Client.AttachmentMessageFromConsole)
       //An attachment is sent to ChatServer
       expectNoMessage()
     }
 
     "if receives a request from console of creating a new chat group and forward it to register" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorD = TestProbe("testActorD")
-      testActorD.send(client,Client.CreateGroupRequestFromConsole("groupName"))
+      val testActorE = TestProbe("testActorE")
+      testActorE.send(client,Client.CreateGroupRequestFromConsole("groupName"))
       expectNoMessage()
       //expectMsgClass(classOf[NewGroupChatRequest])
     }
 
     "if receives a request from console of joining to an existing chat group and forward it to register" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorE = TestProbe("testActorE")
-      testActorE.send(client,Client.JoinGroupRequestFromConsole("TestNameGroup"))
+      val testActorF = TestProbe("testActorF")
+      testActorF.send(client,Client.JoinGroupRequestFromConsole("TestNameGroup"))
       expectNoMessage()
       //expectMsgClass(JoinGroupChatRequest(groupName).getClass)
     }

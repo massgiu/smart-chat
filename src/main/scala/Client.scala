@@ -46,17 +46,19 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         */
       println(message + " from " + senderName)
     }
-    case StringMessageFromConsole(message, senderName) => {
-      userRefMap.find(nameAndRef=>nameAndRef._1==senderName).fold({
-        register ! GetServerRef(senderName)
+    case StringMessageFromConsole(message, recipient) => {
+      //search map with key==recupient
+      userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
+        register ! GetServerRef(recipient)
         unstashAll()
         context.become({
           case ResponseForServerRefRequest(chatServer) => chatServer match {
             case Some(serverRef)=> {
-              userRefMap += (senderName -> chatServer.get)
+              println("ChatServer found!")
+              userRefMap += (recipient -> chatServer.get)
               unstashAll()
               context.unbecome()
-              self ! StringMessageFromConsole(message, senderName)
+              self ! StringMessageFromConsole(message, recipient)
             }
             case _=> {
               println("ChatServer unreachable")
