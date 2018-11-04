@@ -46,6 +46,25 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySystem")) with ImplicitSe
     }
 
     "if receives request from console to create a one to one chat" in {
+      implicit var system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
+      val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/server.conf")))
+      val server = system.actorOf(Props(new RegisterServer()), name = "server")
+      val logInconsole = TestProbe("logInConsole")
+      val testActor = TestProbe("testActor")
+
+      logInconsole.send(client,Client.LogInFromConsole("userA"))//JoinRequest("userA") sent to server
+      logInconsole.expectNoMessage()
+      testActor.send(server,RegisterServer.JoinRequest("userB"))
+      testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      logInconsole.send(client,Client.RequestForChatCreationFromConsole("userB"))
+      logInconsole.expectNoMessage()
+      testActor.send(server,RegisterServer.GetServerRef("userA"))
+      val testchatServer = testActor.expectMsgPF()({
+        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
+      })
+      testActor.send(testchatServer,OneToOneChatServer.Message("messageFromTestActor"))
+      testActor.expectMsg(Client.StringMessageFromServer("messageFromTestActor",1,"userB"))
 
     }
 
