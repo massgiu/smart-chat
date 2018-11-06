@@ -17,7 +17,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
 
   "A client when interacts with a console/view" must {
 
-    "if receives userName from login view, sends a registration request to server" in {
+    "send a registration request to server, if receives userName from login view" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val serverA = system.actorOf(Props(new RegisterServer()), name = "server")
       val consoleForClient = TestProbe("actorFromConsole")
@@ -52,7 +52,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       StopServerActorTest.expectTerminated(serverA)
     }
 
-    "if receives request from console to create a one to one chat" in {
+    "create a onetoone chat, if receives request from console" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val serverB = system.actorOf(Props(new RegisterServer()), name = "server")
       val consoleForClient = TestProbe("actorFromConsole")
@@ -82,7 +82,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
 
     }
 
-    "if receives message from client console, it checks if recipient chatServer ref is stored and sends to chatserver" in {
+    "check if chatServer ref is stored and send a message to chatserver, if receives message from client console" in {
       val serverC = system.actorOf(Props(new RegisterServer()), name = "server")
       val clientA = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val consoleForClientA = TestProbe("actorFromConsoleA")
@@ -119,7 +119,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       StopServerActorTest.expectTerminated(serverC)
     }
 
-    "if receives an attachment from client console" in {
+    "send an attachment to chatServer, if receives an attachment from client console" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val testActor = TestProbe("testActor")
       testActor.send(client,Client.AttachmentMessageFromConsole)
@@ -127,7 +127,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       expectNoMessage()
     }
 
-    "if receives a request from console of creating a new chat group and forward it to register" in {
+    "send the request to register, if receives a request from console " in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val testActor = TestProbe("testActor")
       testActor.send(client,Client.CreateGroupRequestFromConsole("groupName"))
@@ -135,7 +135,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       //expectMsgClass(classOf[NewGroupChatRequest])
     }
 
-    "if receives a request from console of joining to an existing chat group and forward it to register" in {
+    "send the request to register if receives a request from console of joining to an existing chat" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val testActor = TestProbe("testActor")
       expectNoMessage()
