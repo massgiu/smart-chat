@@ -47,7 +47,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       println(message + " from " + senderName)
     }
     case StringMessageFromConsole(message, recipient) => {
-      //search map with key==recupient
+      //search map with key==recipient
       userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
         register ! GetServerRef(recipient)
         unstashAll()
