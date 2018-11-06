@@ -2,12 +2,13 @@
 import java.io.File
 
 import Client._
-import akka.actor.{ActorSystem, ExtendedActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
+import akka.actor.{ActorSystem, ExtendedActorSystem, Props, Terminated}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
-class ClientConsoleTest extends TestKit(ActorSystem("MySystem")) with ImplicitSender
+
+class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/server.conf")))) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll{
 
   override def afterAll: Unit = {
@@ -16,95 +17,111 @@ class ClientConsoleTest extends TestKit(ActorSystem("MySystem")) with ImplicitSe
 
   "A client when interacts with a console/view" must {
 
-    implicit val system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/server.conf")))
-    val server = system.actorOf(Props(new RegisterServer()), name = "server")
-
     "if receives userName from login view, sends a registration request to server" in {
-      implicit val system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val serverA = system.actorOf(Props(new RegisterServer()), name = "server")
 
-      val logInconsoleA = TestProbe("logInConsoleA")
-      val testActorA = TestProbe("testActorA")
+      val consoleForClient = TestProbe("actorFromConsole")
+      val testActor = TestProbe("testActor")
 
       //not empty username: the username inserted by console is registered
-      logInconsoleA.send(client,Client.LogInFromConsole("userA"))//JoinRequest("userA") sent to server
-      logInconsoleA.expectNoMessage()
-      testActorA.send(server,RegisterServer.JoinRequest("userB"))//to get user and group list, applicant must be registered
-      testActorA.expectMsg(Client.AcceptRegistrationFromRegister(true))
-      testActorA.send(server,RegisterServer.AllUsersAndGroupsRequest)
-      var userList = testActorA.expectMsgPF()({
-        case (UserAndGroupActive(userList,groupList))=> userList
+      consoleForClient.send(client,Client.LogInFromConsole("userA"))//JoinRequest("userA") sent to server
+      consoleForClient.expectNoMessage()
+      testActor.send(serverA,RegisterServer.JoinRequest("userB"))//to get user and group list, applicant must be registered
+      testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      testActor.send(serverA,RegisterServer.AllUsersAndGroupsRequest)
+      var userList = testActor.expectMsgPF()({
+        case (UserAndGroupActive(users,_))=> users
       })
-      assert(userList.contains(("userA")))
+      assert(userList.contains("userA"))
 
       //empty username: the username inserted by console is registered
-      logInconsoleA.send(client,Client.LogInFromConsole(""))//JoinRequest("") sent to server
-      logInconsoleA.expectNoMessage()
-      testActorA.send(server,RegisterServer.AllUsersAndGroupsRequest)
-      userList = testActorA.expectMsgPF()({
+      consoleForClient.send(client,Client.LogInFromConsole(""))//JoinRequest("") sent to server
+      consoleForClient.expectNoMessage()
+      testActor.send(serverA,RegisterServer.AllUsersAndGroupsRequest)
+      userList = testActor.expectMsgPF()({
         case (UserAndGroupActive(userList,groupList))=> userList
       })
       assert(userList.length==2)
+
+      val StopServerActorTest = TestProbe()
+      system.stop(client)
+      StopServerActorTest.watch(serverA)
+      system.stop(serverA)
+      StopServerActorTest.expectTerminated(serverA)
     }
 
     "if receives request from console to create a one to one chat" in {
-      implicit var system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val serverB = system.actorOf(Props(new RegisterServer()), name = "server")
 
-      val logInconsoleB = TestProbe("logInConsoleB")
-      val testActorB = TestProbe("testActorB")
+      val consoleForClient = TestProbe("actorFromConsole")
+      val testActor = TestProbe("testActor")
 
-      logInconsoleB.send(client,Client.LogInFromConsole("userC"))//JoinRequest("userC") sent to server
-      logInconsoleB.expectNoMessage()
-      testActorB.send(server,RegisterServer.JoinRequest("userD"))
-      testActorB.expectMsg(Client.AcceptRegistrationFromRegister(true))
-      logInconsoleB.send(client,Client.RequestForChatCreationFromConsole("userD"))
-      logInconsoleB.expectNoMessage()
-      testActorB.send(server,RegisterServer.GetServerRef("userC"))
-      val testchatServer = testActorB.expectMsgPF()({
+      consoleForClient.send(client, Client.LogInFromConsole("userA")) //JoinRequest("userC") sent to server
+      consoleForClient.expectNoMessage()
+      testActor.send(serverB, RegisterServer.JoinRequest("userB"))
+      testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      consoleForClient.send(client, Client.RequestForChatCreationFromConsole("userB"))
+      consoleForClient.expectNoMessage()
+      testActor.send(serverB, RegisterServer.GetServerRef("userA"))
+      val testchatServer = testActor.expectMsgPF()({
         case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
       })
-      testActorB.send(testchatServer,OneToOneChatServer.Message("messageToUserC"))
-      testActorB.expectMsg(Client.StringMessageFromServer("messageToUserC",1,"userD"))
+      testActor.send(testchatServer, OneToOneChatServer.Message("messageToUserA"))
+      testActor.expectMsg(Client.StringMessageFromServer("messageToUserA", 1, "userB"))
+
+      val StopServerActorTest = TestProbe()
+      system.stop(client)
+      StopServerActorTest.watch(serverB)
+      system.stop(serverB)
+      StopServerActorTest.expectTerminated(serverB)
+
     }
 
     "if receives message from client console, it checks if recipient chatServer ref is stored and sends to chatserver" in {
-      implicit var system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
-      val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val clientA = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val serverC = system.actorOf(Props(new RegisterServer()), name = "server")
 
-      val logInconsoleC = TestProbe("logInConsoleC")
-      val testActorC = TestProbe("testActorC")
+      val consoleForClientA = TestProbe("actorFromConsoleA")
+      val testActor = TestProbe("testActor")
 
-      logInconsoleC.send(client,Client.LogInFromConsole("userE"))//JoinRequest("userE") sent to server
-      logInconsoleC.expectNoMessage()
-      testActorC.send(server,RegisterServer.JoinRequest("userF"))
-      testActorC.expectMsg(Client.AcceptRegistrationFromRegister(true))
-      logInconsoleC.send(client,Client.RequestForChatCreationFromConsole("userF"))
-      logInconsoleC.expectNoMessage()
-      testActorC.send(client,Client.StringMessageFromConsole("messagetoUserE","userF"))
-      testActorC.expectMsg(Client.StringMessageFromServer("messagetoUserE",1,"userE"))
+      consoleForClientA.send(clientA,Client.LogInFromConsole("userA"))//JoinRequest("userE") sent to server
+      consoleForClientA.expectNoMessage()
+      testActor.send(serverC,RegisterServer.JoinRequest("userC"))
+      testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole("userC"))
+      consoleForClientA.expectNoMessage()
+      testActor.send(clientA,Client.StringMessageFromConsole("messagetoUserA","userC"))
+      testActor.expectMsg(Client.StringMessageFromServer("messagetoUserA",1,"userA"))
+
+      val StopServerActorTest = TestProbe()
+      system.stop(clientA)
+      StopServerActorTest.watch(serverC)
+      system.stop(serverC)
+      StopServerActorTest.expectTerminated(serverC)
     }
 
     "if receives an attachment from client console" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorD = TestProbe("testActorD")
-      testActorD.send(client,Client.AttachmentMessageFromConsole)
+      val testActor = TestProbe("testActor")
+      testActor.send(client,Client.AttachmentMessageFromConsole)
       //An attachment is sent to ChatServer
       expectNoMessage()
     }
 
     "if receives a request from console of creating a new chat group and forward it to register" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorE = TestProbe("testActorE")
-      testActorE.send(client,Client.CreateGroupRequestFromConsole("groupName"))
+      val testActor = TestProbe("testActor")
+      testActor.send(client,Client.CreateGroupRequestFromConsole("groupName"))
       expectNoMessage()
       //expectMsgClass(classOf[NewGroupChatRequest])
     }
 
     "if receives a request from console of joining to an existing chat group and forward it to register" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
-      val testActorF = TestProbe("testActorF")
-      testActorF.send(client,Client.JoinGroupRequestFromConsole("TestNameGroup"))
+      val testActor = TestProbe("testActor")
+      testActor.send(client,Client.JoinGroupRequestFromConsole("TestNameGroup"))
       expectNoMessage()
       //expectMsgClass(JoinGroupChatRequest(groupName).getClass)
     }
