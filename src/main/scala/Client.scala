@@ -21,7 +21,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
       val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
       register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
-      println("New Client @: " + self.path + "/user/server" + " started!")
+      println("New Client @: " + self.path + " started!")
       //Application.launch(classOf[LaunchClientLogin],self.toString())
     }
 
