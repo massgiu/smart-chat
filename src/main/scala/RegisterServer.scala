@@ -30,30 +30,27 @@ class RegisterServer extends Actor{
     case AllUsersAndGroupsRequest =>
       ifSenderRegisteredOrElse(() => sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList), () => sender ! UserAndGroupActive(List.empty, List.empty))
     case NewOneToOneChatRequest(friendName) =>
-      val clientWhoAsked = sender
-      val clientWhoAskedName = senderName
-      val onFail = () => clientWhoAsked ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => users.find(_._1 == friendName).fold(onFail())(_ => {
-        findChatServerForMembers(clientWhoAskedName, friendName)
+      val clientWhoAsked = (sender, senderName)
+      val onFail = () => clientWhoAsked._1 ! ResponseForChatCreation(accept = false)
+      ifSenderRegisteredOrElse(() => findUser(friendName).ifSuccess(friendRef => {
+        findChatServerForMembers(clientWhoAsked._2, friendName)
           .ifSuccess(_ => onFail())
           .orElse(_ => {
-            val friendRef = users(friendName)
-            val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (clientWhoAskedName, clientWhoAsked), (friendName, friendRef)))
+            val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (clientWhoAsked._2, clientWhoAsked._1), (friendName, friendRef.head)))
             chats = newChatServer :: chats
-            clientWhoAsked ! ResponseForChatCreation(accept = true)
+            clientWhoAsked._1 ! ResponseForChatCreation(accept = true)
           })
-      }), onFail)
+      }).orElse(_ => onFail()), onFail)
     case JoinGroupChatRequest(group) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
       ifSenderRegisteredOrElse(() => groups.find(_._1 == group).fold(onFail())(_ => {
         sender ! ResponseForChatCreation(accept = true)
       }), onFail)
     case GetServerRef(friendName) =>
-      val clientWhoAsked = sender
-      val clientWhoAskedName = senderName
-      findChatServerForMembers(clientWhoAskedName, friendName)
-        .ifSuccess(server => clientWhoAsked ! ResponseForServerRefRequest(Option(server.head)))
-        .orElse(_ => clientWhoAsked ! ResponseForServerRefRequest(Option.empty))
+      val clientWhoAsked = (sender, senderName)
+      findChatServerForMembers(clientWhoAsked._2, friendName)
+        .ifSuccess(server => clientWhoAsked._1 ! ResponseForServerRefRequest(Option(server.head)))
+        .orElse(_ => clientWhoAsked._1 ! ResponseForServerRefRequest(Option.empty))
   }
 
   def senderName: String = {
@@ -75,6 +72,11 @@ class RegisterServer extends Actor{
 
   def getAllUsersAndGroups: (List[String], List[String]) = {
     (users.keys.toList, groups.keys.toList)
+  }
+
+  def findUser(name: String): OperationDone[ActorRef] = {
+    val result = users.find(nameAndActorRef => nameAndActorRef._1 == name)
+    OperationDone(result.isDefined, if (result.isDefined) List(result.get._2) else List.empty)
   }
 
   def createNewGroupChat(newGroupName: String): EmptyOperationDone = {
