@@ -4,7 +4,7 @@ import java.io.File
 import ActorLoginController.ResponseFromLogin
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
-import javafx.application.Application
+import javafx.application.{Application, Platform}
 import javafx.event.ActionEvent
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.Scene
@@ -49,18 +49,20 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
   }
 
   def loginAccepted() ={
-    val loaderChat : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
-    loaderChat.setController(new ChatController(clientRef,system))
-    val sceneChat = new Scene(loaderChat.load())
-    val stageChat = new Stage()
-    stageChat.setScene(sceneChat)
-    stageChat.show()
-    val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
-    stage.close()
+    Platform.runLater(()=> {
+        val loaderChat : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
+        loaderChat.setController(new ChatController(clientRef,system))
+        val sceneChat = new Scene(loaderChat.load())
+        val stageChat = new Stage()
+        stageChat.setScene(sceneChat)
+        stageChat.show()
+        val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
+        stage.close()
+      })
   }
 
   def loginRefuse() ={
-    messageLabel.setText("Invalid UserName")
+    Platform.runLater(()=>  messageLabel.setText("Invalid UserName"))
   }
 }
 

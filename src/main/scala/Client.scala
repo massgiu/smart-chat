@@ -31,7 +31,6 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
       val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
       register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
-      register ! JoinRequest("ciao")
       println("New Client @: " + self.path + " started!")
     }
 
@@ -110,11 +109,9 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val view = sender
       userName match {
         case username: String if username.length>0 => {
-          //register ! JoinRequest(userName)
-          implicit val timeout: Timeout = Timeout(2 seconds)
-          val future = register.ask(JoinRequest(userName), self)
-          val responseFuture: Future[AcceptRegistrationFromRegister] = future.mapTo[AcceptRegistrationFromRegister]
-          responseFuture.onComplete{
+          implicit val timeout: Timeout = Timeout(0.5 seconds)
+          val future = ask(register, JoinRequest(userName), self).mapTo[AcceptRegistrationFromRegister]
+          future.onComplete{
             case Success(result)=>
               println("qui")
               view ! ResponseFromLogin(result.accept)
