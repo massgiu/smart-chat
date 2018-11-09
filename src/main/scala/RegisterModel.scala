@@ -1,4 +1,5 @@
 import akka.actor.ActorRef
+import Utils._
 
 class RegisterModel {
 
@@ -34,35 +35,23 @@ class RegisterModel {
   }
 
   def findUser(name: String): OperationDone[ActorRef] = {
-    val result = users.find(nameAndActorRef => nameAndActorRef._1 == name)
-    OperationDone(result.isDefined, if (result.isDefined) List(result.get._2) else List.empty)
+    findInMap(name, users)
   }
 
   def findUserName(ref: ActorRef): OperationDone[String] = {
-    val name = users.find(_._2 == ref).map(u => u._1)
-    OperationDone(name.isDefined, if (name.isDefined) List(name.get) else List.empty)
+    reverseFindInMap(ref, users)
   }
 
   def findGroup(name: String): OperationDone[ActorRef] = {
-    val result = groups.find(nameAndActorRef => nameAndActorRef._1 == name)
-    OperationDone(result.isDefined, if (result.isDefined) List(result.get._2) else List.empty)
+    findInMap(name, groups)
+  }
+
+  def findGroupName(ref: ActorRef): OperationDone[String] = {
+    reverseFindInMap(ref, groups)
   }
 
   def getChatsAsList: List[ActorRef] = {
     chats
-  }
-
-  def ifNewNameIsValidOrElse(name: String, ifValid: () => Unit, ifNotValid: () => Unit): Unit = {
-    if (name != null && name.length > 0)
-      ifValid()
-    else
-      ifNotValid()
-  }
-
-  object MapExtension {
-    implicit class ExtendedMap(m: Map[String, ActorRef]) {
-      def ifPresentOrElse(key: String, ifNotPresent: () => Unit, ifPresent: ((String, ActorRef)) => Unit): Unit = m.find(keyValue => keyValue._1 == key).fold(ifNotPresent())(ifPresent)
-    }
   }
 
 }

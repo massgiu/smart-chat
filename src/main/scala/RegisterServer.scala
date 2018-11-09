@@ -4,7 +4,7 @@ import RegisterServer._
 import akka.actor.{Actor, ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-
+import Utils.ifNewNameIsValidOrElse
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
@@ -20,10 +20,9 @@ class RegisterServer extends Actor {
       .ifSuccess(_ => sender ! AcceptRegistrationFromRegister(true))
       .orElse(_ => sender ! AcceptRegistrationFromRegister(false))
     case Unjoin() => model.removeUser(senderName)
-    case NewOneToOneChatRequest(friendName) =>
-      createNewOneToOneChat(friendName)
-        .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
-        .orElse(_ => sender ! ResponseForChatCreation(accept = false))
+    case NewOneToOneChatRequest(friendName) => createNewOneToOneChat(friendName)
+      .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
+      .orElse(_ => sender ! ResponseForChatCreation(accept = false))
     case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
       .ifSuccess(_ => sender ! ResponseForChatCreation(true))
       .orElse(_ => sender ! ResponseForChatCreation(false))
@@ -33,10 +32,9 @@ class RegisterServer extends Actor {
         //insert some other code here
         sender ! ResponseForChatCreation(accept = true)
       }).orElse(_ => sender ! ResponseForChatCreation(accept = false)), onFail)
-    case AllUsersAndGroupsRequest =>
-      model.getAllUsersAndGroupsNames
-        .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
-        .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
+    case AllUsersAndGroupsRequest => model.getAllUsersAndGroupsNames
+      .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
+      .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
     case GetServerRef(friendName) =>
       val clientWhoAsked = (sender, senderName)
       findChatServerForMembers(clientWhoAsked._2, friendName)
@@ -67,7 +65,7 @@ class RegisterServer extends Actor {
 
   def createNewGroupChat(newGroupName: String): EmptyOperationDone = {
     var success = false
-    model.ifNewNameIsValidOrElse(newGroupName, () =>
+    ifNewNameIsValidOrElse(newGroupName, () =>
       ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
         val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Set(sender)))
         model.addNewGroupChatServer(newGroupName, newGroupChatServer)
