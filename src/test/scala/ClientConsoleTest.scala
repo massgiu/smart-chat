@@ -28,7 +28,9 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
 
       //not empty username: the username inserted by console is registered
       consoleForClient.send(client,Client.LogInFromConsole(nameOne))//JoinRequest("userA") sent to server
-      consoleForClient.expectMsg(ResponseFromLogin(true,nameOne))
+      consoleForClient.expectMsgPF()({
+        case (ResponseFromLogin(true,userName)) => assert(userName==Some(nameOne))
+      })
       testActor.send(serverA,RegisterServer.JoinRequest(nameTwo))//to get user and group list, applicant must be registered
       testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
       testActor.send(serverA,RegisterServer.AllUsersAndGroupsRequest)
@@ -39,7 +41,9 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
 
       //empty username: the username inserted by console is registered
       consoleForClient.send(client,Client.LogInFromConsole(""))//JoinRequest("") sent to server
-      consoleForClient.expectNoMessage()
+      consoleForClient.expectMsgPF()({
+        case (ResponseFromLogin(false,userName)) => assert(userName==None)
+      })
       testActor.send(serverA,RegisterServer.AllUsersAndGroupsRequest)
       userList = testActor.expectMsgPF()({
         case (UserAndGroupActive(userList,_))=> userList
@@ -63,7 +67,9 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       val nameTwo = "userB"
 
       consoleForClient.send(client, Client.LogInFromConsole(nameOne)) //JoinRequest("userA") sent to server
-      consoleForClient.expectMsg(ResponseFromLogin(true,nameOne))
+      consoleForClient.expectMsgPF()({
+        case (ResponseFromLogin(true,userName)) => assert(userName==Some(nameOne))
+      })
       testActor.send(serverB, RegisterServer.JoinRequest(nameTwo))
       testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
       consoleForClient.send(client, Client.RequestForChatCreationFromConsole(nameTwo))
@@ -97,7 +103,9 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       val nameThree = "userC"
 
       consoleForClientA.send(clientA,Client.LogInFromConsole(nameOne))//JoinRequest("userA") sent to server
-      consoleForClientA.expectMsg(ResponseFromLogin(true,nameOne))
+      consoleForClientA.expectMsgPF()({
+        case (ResponseFromLogin(true,userName))=>assert(userName==Some(nameOne))
+      })
       testActor.send(serverC,RegisterServer.JoinRequest(nameThree))
       testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
       consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole(nameThree))
@@ -106,7 +114,9 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       testActor.expectMsg(Client.StringMessageFromServer(messageTextOne,1,nameOne)) //chatServer sends msg to sender
 
       consoleForClientB.send(clientB,Client.LogInFromConsole(nameTwo))//JoinRequest("userB") sent to server
-      consoleForClientB.expectMsg(ResponseFromLogin(true,nameTwo))
+      consoleForClientB.expectMsgPF()({
+        case (ResponseFromLogin(true,userName))=>assert(userName==Some(nameTwo))
+      })
       consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole(nameTwo))
       consoleForClientA.expectNoMessage()
       consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextTwo,nameTwo))

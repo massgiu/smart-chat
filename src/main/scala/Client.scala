@@ -110,9 +110,13 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val future = ask(register, JoinRequest(userName), self).mapTo[AcceptRegistrationFromRegister]
       future.onComplete{
         case Success(result)=>
-          if (result.accept) println("Connection accepted from server for "+userName)
-          else println("Connection refused for " + userName)
-          view ! ResponseFromLogin(result.accept,userName)
+          if (result.accept) {
+            println("Connection accepted from server for " + userName)
+            view ! ResponseFromLogin(result.accept,Some(userName))
+          } else {
+            println("Connection refused for "+ userName)
+            view ! ResponseFromLogin(result.accept,None)
+          }
       }
     }
     case RequestForChatCreationFromConsole(friendName) => {

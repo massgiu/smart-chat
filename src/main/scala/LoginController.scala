@@ -74,14 +74,14 @@ class ActorLoginController(userName: String, clientRef : ActorRef,loginControlle
   }
 
   override def receive: Receive = {
-    case ResponseFromLogin(accept : Boolean, userName : String) => accept match {
-      case true => loginController.loginAccepted(userName)
+    case ResponseFromLogin(accept : Boolean, userName : Option[String]) => accept match {
+      case true => loginController.loginAccepted(userName.get)
       case _ => loginController.loginRefuse()
     }
   }
 }
 
 object ActorLoginController {
-  final case class ResponseFromLogin(accept : Boolean, userName : String)
+  final case class ResponseFromLogin(accept : Boolean, userName : Option[String])
 }
 
