@@ -1,17 +1,18 @@
-package res.view
 
+import java.io.File
 import java.net.URL
 import java.util.ResourceBundle
 
+import akka.actor.{Actor, ActorRef, ActorSelection, ActorSystem, Props}
+import com.typesafe.config.ConfigFactory
 import javafx.application.Application
-import javafx.collections.{FXCollections, ObservableList}
+import javafx.collections.ObservableList
 import javafx.event.ActionEvent
 import javafx.fxml.{FXMLLoader, Initializable}
 import javafx.scene.control._
 import javafx.scene.image.ImageView
 import javafx.scene.{Parent, Scene}
-import javafx.stage.Stage
-import javafx.stage.FileChooser
+import javafx.stage.{FileChooser, Stage}
 
 object LaunchClientView extends App {
   Application.launch(classOf[LaunchClientView], args: _*)
@@ -19,16 +20,18 @@ object LaunchClientView extends App {
 
 class LaunchClientView extends Application{
   override def start(primaryStage: Stage): Unit = {
-
-    val root: Parent = FXMLLoader.load(getClass.getResource("/res/view/clientView.fxml"))
-    val scene = new Scene(root)
-    primaryStage.setTitle("Chat View")
-    primaryStage.setScene(scene)
-    primaryStage.show()
+    val system = ActorSystem.create("MySystem",ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
+    val actorController = system.actorOf(Props(new ActorViewController()))
+//
+//    val root: Parent = FXMLLoader.load(getClass.getResource("/res/view/clientView.fxml"))
+//    val scene = new Scene(root)
+//    primaryStage.setTitle("Chat View")
+//    primaryStage.setScene(scene)
+//    primaryStage.show()
   }
 }
 
-class ChatController extends Initializable{
+class ChatController(clientRef : ActorRef, system: ActorSystem) extends Initializable{
 
   import javafx.fxml.FXML
 
@@ -85,4 +88,10 @@ class ChatController extends Initializable{
     else println("File is not valid")
   }
 
+}
+
+class ActorViewController extends Actor {
+  override def receive: Receive = {
+    case _ => Unit
+  }
 }

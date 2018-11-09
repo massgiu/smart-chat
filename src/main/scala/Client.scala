@@ -1,12 +1,22 @@
 import java.io.File
 
+import ActorLoginController.ResponseFromLogin
 import Client._
 import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Props, Stash}
+import akka.util.Timeout
+import akka.pattern._
+
+import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
+import scala.concurrent.Future
+import scala.util.Success
+
 class Client(system: ExtendedActorSystem) extends Actor with Stash{
+
+  import context.dispatcher
 
   var users: List[String] = List()
   var groups: List[String] = List()
@@ -21,8 +31,8 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
       val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
       register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
+      register ! JoinRequest("ciao")
       println("New Client @: " + self.path + " started!")
-      //Application.launch(classOf[LaunchClientLogin],self.toString())
     }
 
     override def receive: Receive = {
@@ -96,11 +106,22 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case  _ => println("Chat creation refused!")
       }
     }
-    case LogInFromConsole(userName) => userName match {
-      case username: String if username.length>0 => {
-        register ! JoinRequest(userName)
+    case LogInFromConsole(userName) => {
+      val view = sender
+      userName match {
+        case username: String if username.length>0 => {
+          //register ! JoinRequest(userName)
+          implicit val timeout: Timeout = Timeout(2 seconds)
+          val future = register.ask(JoinRequest(userName), self)
+          val responseFuture: Future[AcceptRegistrationFromRegister] = future.mapTo[AcceptRegistrationFromRegister]
+          responseFuture.onComplete{
+            case Success(result)=>
+              println("qui")
+              view ! ResponseFromLogin(result.accept)
+          }
+        }
+        case _ => println("Invalid username")
       }
-      case _ => println("Invalid username")
     }
     case RequestForChatCreationFromConsole(friendName) => {
       users.find(user => user==friendName).fold({
