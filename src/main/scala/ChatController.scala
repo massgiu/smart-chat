@@ -8,30 +8,20 @@ import com.typesafe.config.ConfigFactory
 import javafx.application.Application
 import javafx.collections.ObservableList
 import javafx.event.ActionEvent
-import javafx.fxml.{FXMLLoader, Initializable}
+import javafx.fxml.{Initializable}
 import javafx.scene.control._
 import javafx.scene.image.ImageView
 import javafx.scene.{Parent, Scene}
 import javafx.stage.{FileChooser, Stage}
 
-object LaunchClientView extends App {
-  Application.launch(classOf[LaunchClientView], args: _*)
-}
-
 class LaunchClientView extends Application{
   override def start(primaryStage: Stage): Unit = {
     val system = ActorSystem.create("MySystem",ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
     val actorController = system.actorOf(Props(new ActorViewController()))
-//
-//    val root: Parent = FXMLLoader.load(getClass.getResource("/res/view/clientView.fxml"))
-//    val scene = new Scene(root)
-//    primaryStage.setTitle("Chat View")
-//    primaryStage.setScene(scene)
-//    primaryStage.show()
   }
 }
 
-class ChatController(clientRef : ActorRef, system: ActorSystem) extends Initializable{
+class ChatController(userName : String, clientRef : ActorRef, system: ActorSystem) extends Initializable{
 
   import javafx.fxml.FXML
 
@@ -49,12 +39,14 @@ class ChatController(clientRef : ActorRef, system: ActorSystem) extends Initiali
   var groupListView : ListView[String] = _
   @FXML
   var userListView : ListView[String] = _
+  @FXML
+  var usernameLabel : Label = _
 
   var userList: ObservableList[String] = _
   var groupList: ObservableList[String] = _
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
-
+      usernameLabel.setText(userName)
   }
 
   @FXML

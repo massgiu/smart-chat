@@ -39,8 +39,8 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
   var usernameTextfield : TextField = _
 
   def loginButtonAction(event:ActionEvent): Unit ={
-
-    val actorLoginController = system.actorOf(Props(classOf[ActorLoginController],usernameTextfield.getText,clientRef,this))
+    if (usernameTextfield.getText.length>0) system.actorOf(Props(classOf[ActorLoginController],
+      usernameTextfield.getText, clientRef, this)) else loginRefuse()
   }
 
   def closeButtonAction(event:ActionEvent): Unit ={
@@ -48,40 +48,40 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
     stage.close()
   }
 
-  def loginAccepted() ={
+  def loginAccepted(userName : String) = {
     Platform.runLater(()=> {
-        val loaderChat : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
-        loaderChat.setController(new ChatController(clientRef,system))
-        val sceneChat = new Scene(loaderChat.load())
-        val stageChat = new Stage()
-        stageChat.setScene(sceneChat)
-        stageChat.show()
-        val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
-        stage.close()
-      })
+      val loaderChat : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
+      //Chat Gui
+      loaderChat.setController(new ChatController(userName,clientRef,system))
+      val sceneChat = new Scene(loaderChat.load())
+      val stageChat = new Stage()
+      stageChat.setScene(sceneChat)
+      stageChat.show()
+      val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
+      stage.close()
+    })
   }
 
   def loginRefuse() ={
-    Platform.runLater(()=>  messageLabel.setText("Invalid UserName"))
+    Platform.runLater(()=>  messageLabel.setText("Invalid userName"))
   }
 }
 
 class ActorLoginController(userName: String, clientRef : ActorRef,loginController : LoginController ) extends Actor {
-
 
   override def preStart(): Unit = {
     clientRef ! Client.LogInFromConsole(userName)
   }
 
   override def receive: Receive = {
-    case ResponseFromLogin(accept : Boolean) => accept match {
-      case true => loginController.loginAccepted()
+    case ResponseFromLogin(accept : Boolean, userName : String) => accept match {
+      case true => loginController.loginAccepted(userName)
       case _ => loginController.loginRefuse()
     }
   }
 }
 
 object ActorLoginController {
-  final case class ResponseFromLogin(accept : Boolean)
+  final case class ResponseFromLogin(accept : Boolean, userName : String)
 }
 

@@ -43,7 +43,7 @@
                         </ImageView>
                     </children>
                 </StackPane>
-                <Label fx:id="messageLabel" text="message to display" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                <Label fx:id="messageLabel" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                 <HBox alignment="TOP_RIGHT" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="2">
                     <children>
 

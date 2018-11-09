@@ -4,14 +4,13 @@ import ActorLoginController.ResponseFromLogin
 import Client._
 import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
-import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Props, Stash}
+import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
 import akka.util.Timeout
 import akka.pattern._
 
 import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Future
 import scala.util.Success
 
 class Client(system: ExtendedActorSystem) extends Actor with Stash{
@@ -36,15 +35,15 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
     override def receive: Receive = {
 
-    case AcceptRegistrationFromRegister(response) => {
-      response match {
-        case true => {
-          println("Connection accepted from server")
-          sender ! AllUsersAndGroupsRequest
-        }
-        case  _ => println("Connection refused")
-      }
-    }
+//    case AcceptRegistrationFromRegister(response) => {
+//      response match {
+//        case true => {
+//          println("Connection accepted from server")
+//          sender ! AllUsersAndGroupsRequest
+//        }
+//        case  _ => println("Connection refused")
+//      }
+//    }
     case UserAndGroupActive(userList, groupList)=> {
       users = userList
       groups = groupList
@@ -107,17 +106,13 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
     }
     case LogInFromConsole(userName) => {
       val view = sender
-      userName match {
-        case username: String if username.length>0 => {
-          implicit val timeout: Timeout = Timeout(0.5 seconds)
-          val future = ask(register, JoinRequest(userName), self).mapTo[AcceptRegistrationFromRegister]
-          future.onComplete{
-            case Success(result)=>
-              println("qui")
-              view ! ResponseFromLogin(result.accept)
-          }
-        }
-        case _ => println("Invalid username")
+      implicit val timeout: Timeout = Timeout(0.5 seconds)
+      val future = ask(register, JoinRequest(userName), self).mapTo[AcceptRegistrationFromRegister]
+      future.onComplete{
+        case Success(result)=>
+          if (result.accept) println("Connection accepted from server for "+userName)
+          else println("Connection refused for " + userName)
+          view ! ResponseFromLogin(result.accept,userName)
       }
     }
     case RequestForChatCreationFromConsole(friendName) => {
