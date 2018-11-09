@@ -7,45 +7,36 @@ import akka.util.Timeout
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import MapExtension._
 
-class RegisterServer extends Actor{
+class RegisterServer extends Actor {
 
   //futures' callbacks will be executed on the messageDispatcher, which is an executionContext
   import context.dispatcher
-
   implicit val timeout: Timeout = Timeout(5 seconds)
-  var users: Map[String, ActorRef] = Map.empty
-  var groups: Map[String, ActorRef] = Map.empty
-  var chats: List[ActorRef] = List.empty
+  val model = new RegisterModel
 
   override def receive: Receive = {
-    case JoinRequest(clientName) => addNewUser(clientName, sender)
+    case JoinRequest(clientName) => model.addNewUser(clientName, sender)
       .ifSuccess(_ => sender ! AcceptRegistrationFromRegister(true))
       .orElse(_ => sender ! AcceptRegistrationFromRegister(false))
-    case Unjoin() => removeUser(senderName)
-    case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
-        .ifSuccess(_ => sender ! ResponseForChatCreation(true))
-        .orElse(_ => sender ! ResponseForChatCreation(false))
-    case AllUsersAndGroupsRequest =>
-      ifSenderRegisteredOrElse(() => sender ! UserAndGroupActive(users.keys.toList, groups.keys.toList), () => sender ! UserAndGroupActive(List.empty, List.empty))
+    case Unjoin() => model.removeUser(senderName)
     case NewOneToOneChatRequest(friendName) =>
-      val clientWhoAsked = (sender, senderName)
-      val onFail = () => clientWhoAsked._1 ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => findUser(friendName).ifSuccess(friendRef => {
-        findChatServerForMembers(clientWhoAsked._2, friendName)
-          .ifSuccess(_ => onFail())
-          .orElse(_ => {
-            val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (clientWhoAsked._2, clientWhoAsked._1), (friendName, friendRef.head)))
-            chats = newChatServer :: chats
-            clientWhoAsked._1 ! ResponseForChatCreation(accept = true)
-          })
-      }).orElse(_ => onFail()), onFail)
+      createNewOneToOneChat(friendName)
+        .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
+        .orElse(_ => sender ! ResponseForChatCreation(accept = false))
+    case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
+      .ifSuccess(_ => sender ! ResponseForChatCreation(true))
+      .orElse(_ => sender ! ResponseForChatCreation(false))
     case JoinGroupChatRequest(group) =>
       val onFail = () => sender ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => groups.find(_._1 == group).fold(onFail())(_ => {
+      ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
+        //insert some other code here
         sender ! ResponseForChatCreation(accept = true)
-      }), onFail)
+      }).orElse(_ => sender ! ResponseForChatCreation(accept = false)), onFail)
+    case AllUsersAndGroupsRequest =>
+      model.getAllUsersAndGroupsNames
+        .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
+        .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
     case GetServerRef(friendName) =>
       val clientWhoAsked = (sender, senderName)
       findChatServerForMembers(clientWhoAsked._2, friendName)
@@ -54,44 +45,39 @@ class RegisterServer extends Actor{
   }
 
   def senderName: String = {
-    users.find(_._2 == sender).map(u => u._1).get
+    var name = model.invalidName
+    model.findUserName(sender).ifSuccess(n => name = n.head)
+    name
   }
 
-  def addNewUser(clientName: String, clientRef: ActorRef): EmptyOperationDone = {
-    var success = false
-    ifNewNameIsValidOrElse(clientName, () => users.find(_._1 == clientName).fold({
-      users += (clientName -> clientRef)
-      success = true
-    })(_ => Unit), () => Unit)
-    EmptyOperationDone(success)
-  }
-
-  def removeUser(clientName: String): Unit = {
-    ifSenderRegisteredOrElse(() => users -= senderName, () => Unit)
-  }
-
-  def getAllUsersAndGroups: (List[String], List[String]) = {
-    (users.keys.toList, groups.keys.toList)
-  }
-
-  def findUser(name: String): OperationDone[ActorRef] = {
-    val result = users.find(nameAndActorRef => nameAndActorRef._1 == name)
-    OperationDone(result.isDefined, if (result.isDefined) List(result.get._2) else List.empty)
+  def createNewOneToOneChat(friendName: String): EmptyOperationDone = {
+    var result = false
+    val clientWhoAsked = (sender, senderName)
+    ifSenderRegisteredOrElse(() => model.findUser(friendName).ifSuccess(friendRef => {
+      findChatServerForMembers(clientWhoAsked._2, friendName)
+        .ifSuccess(_ => Unit)
+        .orElse(_ => {
+          val newChatServer = context.actorOf(Props(classOf[OneToOneChatServer], (clientWhoAsked._2, clientWhoAsked._1), (friendName, friendRef.head)))
+          model.addNewOneToOneChatServer(newChatServer)
+          result = true
+        })
+    }).orElse(_ => Unit), () => Unit)
+    EmptyOperationDone(result)
   }
 
   def createNewGroupChat(newGroupName: String): EmptyOperationDone = {
     var success = false
-    ifNewNameIsValidOrElse(newGroupName, () =>
-      ifSenderRegisteredOrElse(() => groups.ifPresentOrElse(newGroupName, () => {
+    model.ifNewNameIsValidOrElse(newGroupName, () =>
+      ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
         val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Set(sender)))
-        groups += (newGroupName -> newGroupChatServer)
+        model.addNewGroupChatServer(newGroupName, newGroupChatServer)
         success = true
-      }, _ => Unit), () => Unit), () => Unit)
+      }), () => Unit), () => Unit)
     EmptyOperationDone(success)
   }
 
   def findChatServerForMembers(senderName: String, friendName: String): OperationDone[ActorRef] = {
-    val b = chats match {
+    val b = model.getChatsAsList match {
       case a if a.nonEmpty => Await.result(
         Future.sequence(a.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
           .map(chatServerAndFuture => chatServerAndFuture._2.map(future => (chatServerAndFuture._1, future.trueOrFalse))))
@@ -103,35 +89,9 @@ class RegisterServer extends Actor{
 
   def ifSenderRegisteredOrElse(ifPresent: () => Unit, ifNotPresent: () => Unit): Unit = {
     //fold(if_not_present)(if_present)
-    users.values.find(_ == sender).fold(ifNotPresent())(_ => ifPresent())
-  }
-
-  def ifNewNameIsValidOrElse(name: String, ifValid: () => Unit, ifNotValid: () => Unit): Unit = {
-    if (name != null && name.length > 0)
-      ifValid()
-    else
-      ifNotValid()
-  }
-}
-
-class OperationDone[A](success: Boolean, result: List[A]) {
-  def ifSuccess(action: List[A] => Unit): OperationDone[A] = {if(success) action(result); this}
-  def orElse(action: List[A] => Unit): Unit = if(!success) action(result)
-}
-
-object OperationDone {
-  def apply[A](success: Boolean, result: List[A] = List.empty): OperationDone[A] = new OperationDone(success, result)
-}
-
-class EmptyOperationDone(success: Boolean) extends OperationDone[Unit](success, List.empty)
-
-object EmptyOperationDone {
-  def apply(success: Boolean): EmptyOperationDone = new EmptyOperationDone(success)
-}
-
-object MapExtension {
-  implicit class ExtendedMap(m: Map[String, ActorRef]) {
-    def ifPresentOrElse(key: String, ifNotPresent: () => Unit, ifPresent: ((String, ActorRef)) => Unit): Unit = m.find(keyValue => keyValue._1 == key).fold(ifNotPresent())(ifPresent)
+    model.getAllUsersAndGroupsNames
+      .ifSuccess(usersAndGroups => usersAndGroups.head._1.find(_ == senderName).fold(ifNotPresent())(_ => ifPresent()))
+      .orElse(_ => ifNotPresent())
   }
 }
 
