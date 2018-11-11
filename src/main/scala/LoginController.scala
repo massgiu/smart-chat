@@ -70,18 +70,19 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
 class ActorLoginController(userName: String, clientRef : ActorRef,loginController : LoginController ) extends Actor {
 
   override def preStart(): Unit = {
+    clientRef ! Client.SetActorLogin(Option(self))
     clientRef ! Client.LogInFromConsole(userName)
   }
 
   override def receive: Receive = {
-    case ResponseFromLogin(accept : Boolean, userName : Option[String]) => accept match {
-      case true => loginController.loginAccepted(userName.get)
+    case ResponseFromLogin(accept : Boolean) => accept match {
+      case true => loginController.loginAccepted(userName)
       case _ => loginController.loginRefuse()
     }
   }
 }
 
 object ActorLoginController {
-  final case class ResponseFromLogin(accept : Boolean, userName : Option[String])
+  final case class ResponseFromLogin(accept : Boolean)
 }
 

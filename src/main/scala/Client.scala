@@ -5,25 +5,20 @@ import Client._
 import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
-import akka.util.Timeout
-import akka.pattern._
-
-import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
-import scala.util.Success
-
 class Client(system: ExtendedActorSystem) extends Actor with Stash{
-
-  import context.dispatcher
 
   var users: List[String] = List()
   var groups: List[String] = List()
   var userRefMap: Map[String, ActorRef] = Map.empty
   val registerFilePath : String = "src/main/scala/res/server.conf"
+  var userName : String = _
 
   var register : ActorSelection  = _
   var chatServer : ActorRef = _
+  var actorView : Option[ActorRef] = _
+  var actorLogin : Option[ActorRef] = _
 
     override def preStart():Unit = {
       val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
@@ -35,15 +30,19 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
     override def receive: Receive = {
 
-//    case AcceptRegistrationFromRegister(response) => {
-//      response match {
-//        case true => {
-//          println("Connection accepted from server")
-//          sender ! AllUsersAndGroupsRequest
-//        }
-//        case  _ => println("Connection refused")
-//      }
-//    }
+    case AcceptRegistrationFromRegister(response) => {
+      response match {
+        case true => {
+          println("Connection accepted from server ")
+          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(true)
+          sender ! AllUsersAndGroupsRequest
+        }
+        case  _ => {
+          println("Connection refused ")
+          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(false)
+        }
+      }
+    }
     case UserAndGroupActive(userList, groupList)=> {
       users = userList
       groups = groupList
@@ -104,20 +103,9 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case  _ => println("Chat creation refused!")
       }
     }
-    case LogInFromConsole(userName) => {
-      val view = sender
-      implicit val timeout: Timeout = Timeout(0.5 seconds)
-      val future = ask(register, JoinRequest(userName), self).mapTo[AcceptRegistrationFromRegister]
-      future.onComplete{
-        case Success(result)=>
-          if (result.accept) {
-            println("Connection accepted from server for " + userName)
-            view ! ResponseFromLogin(result.accept,Some(userName))
-          } else {
-            println("Connection refused for "+ userName)
-            view ! ResponseFromLogin(result.accept,None)
-          }
-      }
+    case LogInFromConsole(username) => {
+      userName = username
+      register ! JoinRequest(userName)
     }
     case RequestForChatCreationFromConsole(friendName) => {
       users.find(user => user==friendName).fold({
@@ -134,6 +122,12 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
         case _ => stash()
       }, discardOld = false) // stack on top instead of replacing
       })(user => register ! NewOneToOneChatRequest(user))
+    }
+    case SetActorLogin(actorlogin) => {
+      actorLogin = Option(actorlogin.get)
+    }
+    case SetActorView(actorview) => {
+      actorView = Option(actorview.get)
     }
   }
 }
@@ -233,5 +227,17 @@ object Client{
     * @param friendName username to chat with
     */
   final case class RequestForChatCreationFromConsole(friendName : String)
+
+  /**
+    * Set reference for actor view
+    * @param actorView ActorRef from View
+    */
+  final case class SetActorView(actorView : Option[ActorRef])
+
+  /**
+    * Set reference for actor login
+    * @param actorLogin ActorRef from Login
+    */
+  final case class SetActorLogin(actorLogin : Option[ActorRef])
 
 }
