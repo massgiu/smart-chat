@@ -1,97 +1,155 @@
+import java.io.File
+
+import ActorLoginController.ResponseFromLogin
 import Client._
 import OneToOneChatServer.{Attachment, Message}
-import RegisterServer.{AllUsersAndGroupsRequest, JoinGroupChatRequest, JoinRequest, NewGroupChatRequest}
-import akka.actor.{Actor, ActorRef, ActorSelection, Props}
+import RegisterServer._
+import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
+import com.typesafe.config.ConfigFactory
 
-class Client extends Actor{
+class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
-  val register_address : String = new String
-  val register : ActorSelection  = context.actorSelection(register_address)
+  var users: List[String] = List()
+  var groups: List[String] = List()
+  var userRefMap: Map[String, ActorRef] = Map.empty
+  val registerFilePath : String = "src/main/scala/res/server.conf"
+  var userName : String = _
+
+  var register : ActorSelection  = _
   var chatServer : ActorRef = _
-  var myUserName : String = "TestName"
+  var actorView : Option[ActorRef] = _
+  var actorLogin : Option[ActorRef] = _
 
     override def preStart():Unit = {
-      register.tell(JoinRequest(myUserName),self)
+      val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
+      val hostname = serverConfig.getAnyRef("akka.remote.netty.tcp.hostname")
+      val port = serverConfig.getAnyRef("akka.remote.netty.tcp.port")
+      register = context.actorSelection("akka.tcp://MySystem@"+hostname+":"+port+"/user/server")
+      println("New Client @: " + self.path + " started!")
     }
 
     override def receive: Receive = {
 
     case AcceptRegistrationFromRegister(response) => {
       response match {
-        case true => sender.tell(AllUsersAndGroupsRequest,self)
-        case  _ => println("Connection refused")
+        case true => {
+          println("Connection accepted from server ")
+          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(true)
+          sender ! AllUsersAndGroupsRequest
+        }
+        case  _ => {
+          println("Connection refused ")
+          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(false)
+        }
       }
     }
-
     case UserAndGroupActive(userList, groupList)=> {
-      /**
-        * Display data on view/console
-        */
+      users = userList
+      groups = groupList
+      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
-
-    case StringMessageFromServer(message, userName,messageNumber) => {
-      /**
-        * Display data on view/console
-        */
+    case StringMessageFromServer(message, messageNumber,senderName) => {
+      println(message + " from " + senderName)
+      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.MessageFromClient(message,messageNumber,senderName)
     }
+    case StringMessageFromConsole(message, recipient) => {
+      //search map with key==recipient
+      userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
+        register ! GetServerRef(recipient)
+        unstashAll()
+        context.become({
+          case ResponseForServerRefRequest(chatServer) => chatServer match {
+            case Some(serverRef)=> {
+              println("ChatServer found!")
+              userRefMap += (recipient -> chatServer.get)
+              unstashAll()
+              context.unbecome()
+              self ! StringMessageFromConsole(message, recipient)
+            }
+            case _=> {
+              println("ChatServer unreachable")
+              unstashAll()
+              context.unbecome()
+            }
+          }
+          case _ => stash()
+        }, discardOld = false) // stack on top instead of replacing
 
-    case StringMessageFromConsole(message, userName) => {
-      chatServer.tell(Message(message),self)
+      })(nameAndRef => nameAndRef._2 ! Message(message))
     }
-
     case AttachmentMessageFromServer(attachment, userName, messageNumber) =>{
       /**
         * Display data on view/console
         */
     }
-
     case AttachmentMessageFromConsole(attachment, userName) =>{
-      /**
-        * Sends data to OneToOneChatServer
-        */
        chatServer.tell(Attachment(attachment),self)
     }
-
     case CreateGroupRequestFromConsole(groupName : String) => {
       register.tell(NewGroupChatRequest(groupName),self)
     }
-
     case JoinGroupRequestFromConsole(groupName : String) => {
       register.tell(JoinGroupChatRequest(groupName),self)
     }
-
     case ResponseForChatCreation(response) => {
       response match {
-        case true => println("Chat creation done!")
+        case true => {
+          println("Chat creation done!")
+          /**
+            * Sends data to console
+            */
+        }
         case  _ => println("Chat creation refused!")
       }
     }
-
-    case ResponseForServerRefRequest(actref) => {
-      chatServer = actref.get
+    case LogInFromConsole(username) => {
+      userName = username
+      register ! JoinRequest(userName)
+    }
+    case RequestForChatCreationFromConsole(friendName) => {
+      users.find(user => user==friendName).fold({
+      register ! AllUsersAndGroupsRequest
+      unstashAll()
+      context.become({
+        case UserAndGroupActive(userList, groupList)=> {
+          users = userList
+          groups = groupList
+          unstashAll()
+          context.unbecome()
+          self ! RequestForChatCreationFromConsole(friendName)
+        }
+        case _ => stash()
+      }, discardOld = false) // stack on top instead of replacing
+      })(user => register ! NewOneToOneChatRequest(user))
+    }
+    case SetActorLogin(actorlogin) => {
+      actorLogin = Option(actorlogin.get)
+    }
+    case SetActorView(actorview) => {
+      actorView = Option(actorview.get)
+      actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
   }
-
 }
 
 object Client{
 
   /**
-    * Response about acceptance from server about client
+    * Get response about acceptance from server about client
     * registration request
     * @param accept response from server
     */
   final case class AcceptRegistrationFromRegister(accept: Boolean)
 
   /**
-    * Users list and active chat group list
+    * Get users list and active chat group list
     * @param userList username list
     * @param groupList chat group list
     */
   final case class UserAndGroupActive(userList: List[String], groupList : List[String])
 
   /**
-    * A message sent from server console
+    * Get a message sent from server
     * @param message attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
@@ -107,20 +165,20 @@ object Client{
   final case class StringMessageFromGroupServer(message: String, messageNumber: Long, sender : String, group: String)
 
   /**
-    * A message sent from client console
+    * Get a message sent from client console
     * @param message message sent
     */
   final case class StringMessageFromConsole(message : String, recipient : String)
 
   /**
-    * An attachment sent from server
+    * Get an attachment sent from server
     * @param payload attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
   final case class AttachmentMessageFromServer(payload : AttachmentContent, messageNumber: Long, sender : String)
 
   /**
-    * An attachment sent from client console
+    * Get an attachment sent from client console
     * @param payload attachment sent
     */
   final case class AttachmentMessageFromConsole(payload : AttachmentContent, recipient : String)
@@ -153,9 +211,33 @@ object Client{
   final case class ResponseForChatCreation(accept : Boolean)
 
   /**
-    * Response from server about the reference of an oneToOne or group chat
+    * Get response from server about the reference of an oneToOne or group chat
     * @param actRef
     */
   final case class ResponseForServerRefRequest(actRef : Option[ActorRef])
+
+  /**
+    * Get username from LoginController
+    * @param userName
+    */
+  final case class LogInFromConsole(userName:String)
+
+  /**
+    * Request to create a one to one chat from client console
+    * @param friendName username to chat with
+    */
+  final case class RequestForChatCreationFromConsole(friendName : String)
+
+  /**
+    * Set reference for actor view
+    * @param actorView ActorRef from View
+    */
+  final case class SetActorView(actorView : Option[ActorRef])
+
+  /**
+    * Set reference for actor login
+    * @param actorLogin ActorRef from Login
+    */
+  final case class SetActorLogin(actorLogin : Option[ActorRef])
 
 }

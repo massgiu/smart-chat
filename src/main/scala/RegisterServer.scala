@@ -15,6 +15,10 @@ class RegisterServer extends Actor {
   implicit val timeout: Timeout = Timeout(5 seconds)
   val model = new RegisterModel
 
+  override def preStart(): Unit = {
+    println("RegisterServer started...waiting for new client")
+  }
+
   override def receive: Receive = {
     case JoinRequest(clientName) => model.addNewUser(clientName, sender)
       .ifSuccess(_ => sender ! AcceptRegistrationFromRegister(true))
