@@ -16,6 +16,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer1")
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
+      expectMsgClass(classOf[UserAndGroupActive])
       server.tell(RegisterServer.AllUsersAndGroupsRequest, this.testActor)
       expectMsg(UserAndGroupActive(List("name"),List()))
     }
@@ -23,6 +24,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer4")
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
+      expectMsgClass(classOf[UserAndGroupActive])
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(false))
     }
@@ -37,8 +39,11 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer11")
       first.send(server, RegisterServer.JoinRequest("first"))
       first.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      first.expectMsgClass(classOf[UserAndGroupActive])
       second.send(server, RegisterServer.JoinRequest("second"))
       second.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      second.expectMsgClass(classOf[UserAndGroupActive])
+      first.expectMsgClass(classOf[UserAndGroupActive])
       second.send(server, AllUsersAndGroupsRequest)
       second.expectMsg(UserAndGroupActive(List("first", "second"), List.empty))
       first.send(server, Unjoin())
@@ -51,8 +56,11 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer3")
       first.send(server, RegisterServer.JoinRequest(first.toString))
       first.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      first.expectMsgClass(classOf[UserAndGroupActive])
       second.send(server, RegisterServer.JoinRequest(second.toString))
       second.expectMsgClass(classOf[Client.AcceptRegistrationFromRegister])
+      second.expectMsgClass(classOf[UserAndGroupActive])
+      first.expectMsgClass(classOf[UserAndGroupActive])
       first.send(server, RegisterServer.NewOneToOneChatRequest(second.toString))
       first.expectMsg(ResponseForChatCreation(true))
     }
@@ -60,6 +68,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer5")
       server.tell(RegisterServer.JoinRequest("name"), this.testActor)
       expectMsg(AcceptRegistrationFromRegister(true))
+      expectMsgClass(classOf[UserAndGroupActive])
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
       expectMsg(ResponseForChatCreation(true))
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
@@ -78,6 +87,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer6")
       clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       //ClientOne create a oneToOnechatGroup with an inexistent user
       clientOne.send(server, RegisterServer.NewOneToOneChatRequest("unregisteredUser"))
       clientOne.expectMsg(ResponseForChatCreation(false))
@@ -87,6 +97,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer7")
       clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       //ClientOne create a chatGroup with same group name
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(ResponseForChatCreation(true))
@@ -98,6 +109,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer8")
       clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
       clientOne.expectMsg(ResponseForChatCreation(false))
@@ -122,6 +134,11 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientThree.expectMsg(AcceptRegistrationFromRegister(true))
       clientFour.send(server, JoinRequest(nameFour))
       clientFour.expectMsg(AcceptRegistrationFromRegister(true))
+
+      clientOne.expectMsgAllConformingOf(Seq.fill(4)(classOf[UserAndGroupActive]):_*)
+      clientTwo.expectMsgAllConformingOf(Seq.fill(3)(classOf[UserAndGroupActive]):_*)
+      clientThree.expectMsgAllConformingOf(Seq.fill(2)(classOf[UserAndGroupActive]):_*)
+      clientFour.expectMsgAllConformingOf(Seq.fill(1)(classOf[UserAndGroupActive]):_*)
 
       //clientOne tries to get two non-existing chat servers and to create an already-existing chat server
       clientOne.send(server, GetServerRef(nameTwo))

@@ -40,8 +40,11 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
 
       clientOne.send(server, RegisterServer.JoinRequest(nameOne))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       clientTwo.send(server, RegisterServer.JoinRequest(nameTwo))
       clientTwo.expectMsg(AcceptRegistrationFromRegister(true))
+      clientTwo.expectMsgClass(classOf[UserAndGroupActive])
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
 
       //Request from ClientOne to create a oneToOne chat with ClientTwo
       clientOne.send(server, RegisterServer.NewOneToOneChatRequest(nameTwo))
@@ -80,8 +83,11 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
 
       clientOne.send(server, RegisterServer.JoinRequest("clientOne"))
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       clientTwo.send(server, RegisterServer.JoinRequest("clientTwo"))
       clientTwo.expectMsg(AcceptRegistrationFromRegister(true))
+      clientTwo.expectMsgClass(classOf[UserAndGroupActive])
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
 
       //Request from ClientOne to create a chatGroup
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))

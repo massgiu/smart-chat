@@ -21,7 +21,7 @@ class RegisterServer extends Actor {
 
   override def receive: Receive = {
     case JoinRequest(clientName) => model.addNewUser(clientName, sender)
-      .ifSuccess(_ => sender ! AcceptRegistrationFromRegister(true))
+      .ifSuccess(_ => {sender ! AcceptRegistrationFromRegister(true); sendNewServersToAllClients()})
       .orElse(_ => sender ! AcceptRegistrationFromRegister(false))
     case Unjoin() => model.removeUser(senderName)
     case NewOneToOneChatRequest(friendName) => createNewOneToOneChat(friendName)
@@ -87,6 +87,10 @@ class RegisterServer extends Actor {
       case _ => Option.empty
     }
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
+  }
+
+  def sendNewServersToAllClients(): Unit = {
+    model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
   }
 
   def ifSenderRegisteredOrElse(ifPresent: () => Unit, ifNotPresent: () => Unit): Unit = {
