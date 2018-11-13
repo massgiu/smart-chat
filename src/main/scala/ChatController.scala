@@ -4,7 +4,8 @@ import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
-import ActorViewController.{MessageFromClient, ResponseForChatCreation, UpdateUserAndGroupActive}
+import ActorViewController.{UpdateStoryMessage, MessageFromClient, ResponseForChatCreation, UpdateUserAndGroupActive}
+import Client.StringMessageFromServer
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import javafx.application.{Application, Platform}
@@ -43,8 +44,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   var usernameLabel : Label = _
   @FXML
   var chatPanel : ListView[String] = _
+  @FXML
+  var onlineCountLabel : Label = _
 
   var chatMessage : ObservableList[String] = FXCollections.observableArrayList()
+  var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
     system.actorOf(Props(classOf[ActorViewController],clientRef,this))
@@ -53,12 +57,13 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   @FXML
   def userSelected(): Unit = {
-    clientRef ! Client.RequestForChatCreationFromConsole(userListView.getSelectionModel.getSelectedItem())
+    clientRef ! Client.RequestForChatCreationFromConsole(userListView.getSelectionModel.getSelectedItem)
+    updateMessageView(userListView.getSelectionModel.getSelectedItem)
   }
 
   @FXML
   def groupSelected(): Unit = {
-    println(groupListView.getSelectionModel.getSelectedItem())
+    println(groupListView.getSelectionModel.getSelectedItem)
   }
 
   def closeButtonAction(event:ActionEvent): Unit ={
@@ -67,8 +72,14 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   def sendButtonAction(event:ActionEvent): Unit = {
-    clientRef ! Client.StringMessageFromConsole(messageBox.getText(),userListView.getSelectionModel.getSelectedItem())
-    messageBox.clear()
+    if (userListView.getSelectionModel.getSelectedItem!=null) {
+      clientRef ! Client.StringMessageFromConsole(messageBox.getText(), userListView.getSelectionModel.getSelectedItem)
+      messageBox.clear()
+    }
+    else if (groupListView.getSelectionModel.getSelectedItem!=null) {
+      clientRef ! Client.StringMessageFromConsole(messageBox.getText(), groupListView.getSelectionModel.getSelectedItem)
+      messageBox.clear()
+    }
   }
 
   def attachmentButtonAction(event : ActionEvent) : Unit = {
@@ -82,13 +93,14 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     else println("File is not valid")
   }
 
-  def updateUserGroupList(users:List[String], groups:List[String]) ={
+  def updateUserGroupList(users:List[String], groups:List[String]) : Unit ={
     Platform.runLater(()=>  {
       var convertoToObservable : util.ArrayList[String] = new util.ArrayList[String]()
-      users.filter(elem=>(elem!=userName)).foreach(elem=>convertoToObservable.add(elem))
+      users.filter(elem=>elem!=userName).foreach(elem=>convertoToObservable.add(elem))
       val userList: ObservableList[String] = FXCollections.observableArrayList(convertoToObservable)
       userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
       userListView.setItems(userList)
+      onlineCountLabel.setText(userList.size().toString)
 
       convertoToObservable.clear()
       groups.foreach(elem=>convertoToObservable.add(elem))
@@ -98,31 +110,38 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     })
   }
 
-  def updateMessageView(message: String, messageNumber :Long, senderName: String): Unit ={
+  def updateMessageView(recipient: String): Unit ={
     Platform.runLater(()=>{
-      chatMessage.add(senderName + ": " + message)
-      chatPanel.setItems(chatMessage)
+      if (storyMessageChat.contains(recipient)) {
+        chatMessage.clear()
+        val allMessageForRecipient = storyMessageChat(recipient)
+        allMessageForRecipient.foreach(elem => chatMessage.add(elem.sender + ": " + elem.message))
+        chatPanel.setItems(chatMessage)
+      } else {
+        chatMessage.clear()
+        chatPanel.setItems(chatMessage)
+      }
     })
   }
+
+  def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
 
 }
 
 class ActorViewController(clientRef : ActorRef, chatController : ChatController) extends Actor {
 
   override def preStart(): Unit = {
-    clientRef ! Client.SetActorView(Option(self))
+    clientRef ! Client.SetActorView(self)
   }
 
   override def receive: Receive = {
-    case UpdateUserAndGroupActive(userList:List[String], groupList:List[String])=> {
+    case UpdateUserAndGroupActive(userList:List[String], groupList:List[String])=>
       chatController.updateUserGroupList(userList, groupList)
-    }
-    case ResponseForChatCreation(response: Boolean) =>{
-
-    }
-    case MessageFromClient(message:String, messageNumber:Long, senderName:String) => {
-      chatController.updateMessageView(message,messageNumber,senderName)
-    }
+    case ResponseForChatCreation(response: Boolean) => Unit
+    case MessageFromClient(message:String, messageNumber:Long, senderName:String, recipient : String) =>
+      chatController.updateMessageView(recipient)
+    case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]]) =>
+      chatController.updateMessageStory(storyMessage)
   }
 }
 
@@ -147,5 +166,11 @@ object ActorViewController {
     * @param messageNumber progressive number of chat message
     * @param senderName sender of message
     */
-  final case class MessageFromClient(message:String, messageNumber:Long, senderName:String)
+  final case class MessageFromClient(message:String, messageNumber:Long, senderName:String, recipient:String)
+
+  /**
+    * Receives all messages received
+    * @param storyMessage map which stores for every recipient (key) all messages received
+    */
+  final case class UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]])
 }

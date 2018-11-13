@@ -14,11 +14,13 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
   var userRefMap: Map[String, ActorRef] = Map.empty
   val registerFilePath : String = "src/main/scala/res/server.conf"
   var userName : String = _
+  var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty //key is recipient
 
   var register : ActorSelection  = _
   var chatServer : ActorRef = _
-  var actorView : Option[ActorRef] = _
-  var actorLogin : Option[ActorRef] = _
+  var actorView : Option[ActorRef] = Option.empty
+  var actorLogin : Option[ActorRef] = Option.empty
+  var messageRecipient : String = new String()
 
     override def preStart():Unit = {
       val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
@@ -30,29 +32,35 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
 
     override def receive: Receive = {
 
-    case AcceptRegistrationFromRegister(response) => {
-      response match {
-        case true => {
+    case AcceptRegistrationFromRegister(response) =>
+      if (response) {
           println("Connection accepted from server ")
-          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(true)
+          actorLogin.foreach(actor => actor ! ResponseFromLogin(true))
           sender ! AllUsersAndGroupsRequest
-        }
-        case  _ => {
-          println("Connection refused ")
-          if (!Option(actorLogin).isEmpty) actorLogin.get ! ResponseFromLogin(false)
-        }
+      } else {
+        println("Connection refused ")
+        actorLogin.foreach(actor => actor ! ResponseFromLogin(false))
       }
-    }
-    case UserAndGroupActive(userList, groupList)=> {
+    case UserAndGroupActive(userList, groupList)=>
       users = userList
       groups = groupList
-      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
-    }
+      actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users,groups))
     case StringMessageFromServer(message, messageNumber,senderName) => {
-      println(message + " from " + senderName)
-      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.MessageFromClient(message,messageNumber,senderName)
+      var recipient : String = new String
+      if (userName!=senderName) recipient = senderName else recipient = messageRecipient
+      storyMessageChat.keys.find(key => recipient == key).fold(
+        storyMessageChat += (recipient -> List(StringMessageFromServer(message,messageNumber,senderName))))(existingRecip =>{
+          var tmpHistoryMessage : List[StringMessageFromServer] = storyMessageChat(existingRecip)
+          tmpHistoryMessage = StringMessageFromServer(message,messageNumber,senderName) :: tmpHistoryMessage
+          storyMessageChat += (existingRecip -> tmpHistoryMessage)
+        })
+      actorView.foreach(actor => {
+        actor ! ActorViewController.UpdateStoryMessage(storyMessageChat)
+        actor ! ActorViewController.MessageFromClient(message,messageNumber,senderName,recipient)
+      })
     }
-    case StringMessageFromConsole(message, recipient) => {
+    case StringMessageFromConsole(message, recipient) =>
+      messageRecipient = recipient
       //search map with key==recipient
       userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
         register ! GetServerRef(recipient)
@@ -66,70 +74,53 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
               context.unbecome()
               self ! StringMessageFromConsole(message, recipient)
             }
-            case _=> {
+            case _=>
               println("ChatServer unreachable")
               unstashAll()
               context.unbecome()
-            }
           }
           case _ => stash()
         }, discardOld = false) // stack on top instead of replacing
 
       })(nameAndRef => nameAndRef._2 ! Message(message))
-    }
     case AttachmentMessageFromServer(attachment, userName, messageNumber) =>{
       /**
         * Display data on view/console
         */
     }
-    case AttachmentMessageFromConsole(attachment, userName) =>{
-       chatServer.tell(Attachment(attachment),self)
-    }
-    case CreateGroupRequestFromConsole(groupName : String) => {
+    case AttachmentMessageFromConsole(attachment, userName) =>
+      chatServer.tell(Attachment(attachment),self)
+    case CreateGroupRequestFromConsole(groupName : String) =>
       register.tell(NewGroupChatRequest(groupName),self)
-    }
-    case JoinGroupRequestFromConsole(groupName : String) => {
+    case JoinGroupRequestFromConsole(groupName : String) =>
       register.tell(JoinGroupChatRequest(groupName),self)
-    }
-    case ResponseForChatCreation(response) => {
-      response match {
-        case true => {
+    case ResponseForChatCreation(response) =>
+      if (response) {
           println("Chat creation done!")
-          /**
-            * Sends data to console
-            */
-        }
-        case  _ => println("Chat creation refused!")
-      }
-    }
-    case LogInFromConsole(username) => {
+      } else println("Chat creation refused!")
+    case LogInFromConsole(username) =>
       userName = username
       register ! JoinRequest(userName)
-    }
-    case RequestForChatCreationFromConsole(friendName) => {
+    case RequestForChatCreationFromConsole(friendName) =>
       users.find(user => user==friendName).fold({
       register ! AllUsersAndGroupsRequest
       unstashAll()
       context.become({
-        case UserAndGroupActive(userList, groupList)=> {
+        case UserAndGroupActive(userList, groupList)=>
           users = userList
           groups = groupList
           unstashAll()
           context.unbecome()
           self ! RequestForChatCreationFromConsole(friendName)
-        }
         case _ => stash()
       }, discardOld = false) // stack on top instead of replacing
       })(user => register ! NewOneToOneChatRequest(user))
-    }
-    case SetActorLogin(actorlogin) => {
-      actorLogin = Option(actorlogin.get)
-    }
-    case SetActorView(actorview) => {
-      actorView = Option(actorview.get)
+    case SetActorLogin(actorlogin) =>
+      actorLogin = Option(actorlogin)
+    case SetActorView(actorview) =>
+      actorView = Option(actorview)
       actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
-  }
 }
 
 object Client{
@@ -157,10 +148,10 @@ object Client{
 
   /**
     *
-    * @param message
-    * @param messageNumber
-    * @param sender
-    * @param group
+    * @param message message from chat group
+    * @param messageNumber message number
+    * @param sender sender of message
+    * @param group group name
     */
   final case class StringMessageFromGroupServer(message: String, messageNumber: Long, sender : String, group: String)
 
@@ -212,13 +203,13 @@ object Client{
 
   /**
     * Get response from server about the reference of an oneToOne or group chat
-    * @param actRef
+    * @param actRef actor ref that manages one to one chat
     */
   final case class ResponseForServerRefRequest(actRef : Option[ActorRef])
 
   /**
     * Get username from LoginController
-    * @param userName
+    * @param userName user name
     */
   final case class LogInFromConsole(userName:String)
 
@@ -232,12 +223,12 @@ object Client{
     * Set reference for actor view
     * @param actorView ActorRef from View
     */
-  final case class SetActorView(actorView : Option[ActorRef])
+  final case class SetActorView(actorView : ActorRef)
 
   /**
     * Set reference for actor login
     * @param actorLogin ActorRef from Login
     */
-  final case class SetActorLogin(actorLogin : Option[ActorRef])
+  final case class SetActorLogin(actorLogin :ActorRef)
 
 }
