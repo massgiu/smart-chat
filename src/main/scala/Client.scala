@@ -46,12 +46,11 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
     case UserAndGroupActive(userList, groupList)=> {
       users = userList
       groups = groupList
+      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
     case StringMessageFromServer(message, messageNumber,senderName) => {
-      /**
-        * Display data on view/console
-        */
       println(message + " from " + senderName)
+      if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.MessageFromClient(message,messageNumber,senderName)
     }
     case StringMessageFromConsole(message, recipient) => {
       //search map with key==recipient
@@ -128,6 +127,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
     }
     case SetActorView(actorview) => {
       actorView = Option(actorview.get)
+      actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
   }
 }
@@ -149,7 +149,7 @@ object Client{
   final case class UserAndGroupActive(userList: List[String], groupList : List[String])
 
   /**
-    * Get a message sent from server console
+    * Get a message sent from server
     * @param message attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
