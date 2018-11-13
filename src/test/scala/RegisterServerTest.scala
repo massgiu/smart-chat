@@ -135,10 +135,15 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientFour.send(server, JoinRequest(nameFour))
       clientFour.expectMsg(AcceptRegistrationFromRegister(true))
 
-      clientOne.expectMsgAllConformingOf(Seq.fill(4)(classOf[UserAndGroupActive]):_*)
-      clientTwo.expectMsgAllConformingOf(Seq.fill(3)(classOf[UserAndGroupActive]):_*)
-      clientThree.expectMsgAllConformingOf(Seq.fill(2)(classOf[UserAndGroupActive]):_*)
-      clientFour.expectMsgAllConformingOf(Seq.fill(1)(classOf[UserAndGroupActive]):_*)
+      val expectedMessage = UserAndGroupActive(List(nameOne, nameTwo, nameThree, nameFour), List.empty)
+      clientOne.expectMsgAllConformingOf(Seq.fill(3)(classOf[UserAndGroupActive]):_*)
+      clientOne.expectMsg(expectedMessage)
+      clientTwo.expectMsgAllConformingOf(Seq.fill(2)(classOf[UserAndGroupActive]):_*)
+      clientTwo.expectMsg(expectedMessage)
+      clientThree.expectMsgAllConformingOf(Seq.fill(1)(classOf[UserAndGroupActive]):_*)
+      clientThree.expectMsg(expectedMessage)
+      clientFour.expectMsgAllConformingOf(Seq.fill(0)(classOf[UserAndGroupActive]):_*)
+      clientFour.expectMsg(expectedMessage)
 
       //clientOne tries to get two non-existing chat servers and to create an already-existing chat server
       clientOne.send(server, GetServerRef(nameTwo))
