@@ -48,7 +48,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       groups = groupList
       if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.UpdateUserAndGroupActive(users,groups)
     }
-    case StringMessageFromServer(message, messageNumber,senderName) => {
+    case StringMessageFromServer(message, messageNumber,senderName,recipientName) => {
       println(message + " from " + senderName)
       if (!Option(actorView).isEmpty) actorView.get ! ActorViewController.MessageFromClient(message,messageNumber,senderName)
     }
@@ -153,7 +153,7 @@ object Client{
     * @param message attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class StringMessageFromServer(message: String, messageNumber: Long, sender : String)
+  final case class StringMessageFromServer(message: String, messageNumber: Long, sender : String, recipient: String)
 
   /**
     *
