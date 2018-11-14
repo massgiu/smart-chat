@@ -4,7 +4,7 @@ import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
-import ActorViewController.{UpdateStoryMessage, MessageFromClient, ResponseForChatCreation, UpdateUserAndGroupActive}
+import ActorViewController.{UpdateStoryMessage, ResponseForChatCreation, UpdateUserAndGroupActive}
 import Client.StringMessageFromServer
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
@@ -124,7 +124,9 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     })
   }
 
-  def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
+  def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = {
+    storyMessageChat = storyMessage
+  }
 
 }
 
@@ -138,10 +140,9 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
     case UpdateUserAndGroupActive(userList:List[String], groupList:List[String])=>
       chatController.updateUserGroupList(userList, groupList)
     case ResponseForChatCreation(response: Boolean) => Unit
-    case MessageFromClient(message:String, messageNumber:Long, senderName:String, recipient : String) =>
-      chatController.updateMessageView(recipient)
-    case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]]) =>
+    case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
       chatController.updateMessageStory(storyMessage)
+      chatController.updateMessageView(recipient)
   }
 }
 
@@ -161,16 +162,8 @@ object ActorViewController {
   final case class ResponseForChatCreation(accept : Boolean)
 
   /**
-    *
-    * @param message message to display
-    * @param messageNumber progressive number of chat message
-    * @param senderName sender of message
-    */
-  final case class MessageFromClient(message:String, messageNumber:Long, senderName:String, recipient:String)
-
-  /**
     * Receives all messages received
     * @param storyMessage map which stores for every recipient (key) all messages received
     */
-  final case class UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]])
+  final case class UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String)
 }

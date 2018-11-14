@@ -45,20 +45,16 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       users = userList
       groups = groupList
       actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users,groups))
-    case StringMessageFromServer(message, messageNumber,senderName) => {
+    case StringMessageFromServer(message, messageNumber,senderName) =>
       var recipient : String = new String
       if (userName!=senderName) recipient = senderName else recipient = messageRecipient
       storyMessageChat.keys.find(key => recipient == key).fold(
         storyMessageChat += (recipient -> List(StringMessageFromServer(message,messageNumber,senderName))))(existingRecip =>{
-          var tmpHistoryMessage : List[StringMessageFromServer] = storyMessageChat(existingRecip)
-          tmpHistoryMessage = StringMessageFromServer(message,messageNumber,senderName) :: tmpHistoryMessage
-          storyMessageChat += (existingRecip -> tmpHistoryMessage)
+          var tmpStoryMessage : List[StringMessageFromServer] = storyMessageChat(existingRecip)
+          tmpStoryMessage = StringMessageFromServer(message,messageNumber,senderName) :: tmpStoryMessage
+          storyMessageChat += (existingRecip -> tmpStoryMessage)
         })
-      actorView.foreach(actor => {
-        actor ! ActorViewController.UpdateStoryMessage(storyMessageChat)
-        actor ! ActorViewController.MessageFromClient(message,messageNumber,senderName,recipient)
-      })
-    }
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(storyMessageChat,recipient))
     case StringMessageFromConsole(message, recipient) =>
       messageRecipient = recipient
       //search map with key==recipient
