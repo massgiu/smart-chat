@@ -45,18 +45,17 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       users = userList
       groups = groupList
       actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users,groups))
-    case StringMessageFromServer(message, messageNumber,senderName) =>
+    case StringMessageFromServer(message, messageNumber,senderName,recipientName) =>
       var recipient : String = new String
-      if (userName!=senderName) recipient = senderName else recipient = messageRecipient
+      if (userName!=senderName) recipient = senderName else recipient = recipientName
       storyMessageChat.keys.find(key => recipient == key).fold(
-        storyMessageChat += (recipient -> List(StringMessageFromServer(message,messageNumber,senderName))))(existingRecip =>{
+        storyMessageChat += (recipient -> List(StringMessageFromServer(message,messageNumber,senderName,recipient))))(existingRecip =>{
           var tmpStoryMessage : List[StringMessageFromServer] = storyMessageChat(existingRecip)
-          tmpStoryMessage = StringMessageFromServer(message,messageNumber,senderName) :: tmpStoryMessage
+          tmpStoryMessage = StringMessageFromServer(message,messageNumber,senderName,recipient) :: tmpStoryMessage
           storyMessageChat += (existingRecip -> tmpStoryMessage)
         })
       actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(storyMessageChat,recipient))
-    case StringMessageFromConsole(message, recipient) =>
-      messageRecipient = recipient
+    case StringMessageFromConsole(message, recipient) => {
       //search map with key==recipient
       userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
         register ! GetServerRef(recipient)
@@ -78,7 +77,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
           case _ => stash()
         }, discardOld = false) // stack on top instead of replacing
 
-      })(nameAndRef => nameAndRef._2 ! Message(message))
+      })(nameAndRef => nameAndRef._2 ! Message(message))}
     case AttachmentMessageFromServer(attachment, userName, messageNumber) =>{
       /**
         * Display data on view/console
@@ -140,7 +139,7 @@ object Client{
     * @param message attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class StringMessageFromServer(message: String, messageNumber: Long, sender : String)
+  final case class StringMessageFromServer(message: String, messageNumber: Long, sender : String, recipient: String)
 
   /**
     *

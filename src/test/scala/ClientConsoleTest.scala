@@ -76,7 +76,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
         case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
       })
       testActor.send(testChatServer, OneToOneChatServer.Message(messageText))
-      testActor.expectMsg(Client.StringMessageFromServer(messageText, 1, nameTwo))
+      testActor.expectMsg(Client.StringMessageFromServer(messageText, 1, nameTwo, nameOne))
 
       val StopServerActorTest = TestProbe()
       system.stop(client)
@@ -108,7 +108,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole(nameThree))
       consoleForClientA.expectNoMessage()
       consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextOne,nameThree))
-      testActor.expectMsg(Client.StringMessageFromServer(messageTextOne,1,nameOne)) //chatServer sends msg to sender
+      testActor.expectMsg(Client.StringMessageFromServer(messageTextOne,1,nameOne,nameThree)) //chatServer sends msg to sender
 
       consoleForClientB.send(clientB,Client.SetActorLogin(consoleForClientB.ref))
       consoleForClientB.send(clientB,Client.LogInFromConsole(nameTwo))//JoinRequest("userB") sent to server

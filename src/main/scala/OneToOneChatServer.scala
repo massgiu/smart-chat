@@ -12,8 +12,8 @@ class OneToOneChatServer(one: (String, ActorRef), two: (String, ActorRef)) exten
   override def receive: Receive = {
     case Message(text) =>
       messageNumber += 1
-      memberOne._2 ! StringMessageFromServer(text, messageNumber, senderName)
-      memberTwo._2 ! StringMessageFromServer(text, messageNumber, senderName)
+      memberOne._2 ! StringMessageFromServer(text, messageNumber, senderName, recipientName)
+      memberTwo._2 ! StringMessageFromServer(text, messageNumber, senderName, recipientName)
     case DoesContainsMembers(firstMemberName, secondMemberName) =>
       if ((memberOne._1 == firstMemberName && memberTwo._1 == secondMemberName) || (memberTwo._1 == firstMemberName && memberOne._1 == secondMemberName))
         sender ! ContainsMembers(trueOrFalse = true)
@@ -24,6 +24,10 @@ class OneToOneChatServer(one: (String, ActorRef), two: (String, ActorRef)) exten
 
   def senderName: String = {
     if (sender == memberOne._2) memberOne._1 else memberTwo._1
+  }
+
+  def recipientName: String = {
+    if (sender == memberOne._2) memberTwo._1 else memberOne._1
   }
 
 }

@@ -59,20 +59,20 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       val firstMessageText = "msgFromClientOne"
       clientOne.send(testchatServer, Message(firstMessageText))
       val firstMessageIndex = clientTwo.expectMsgPF()({
-        case StringMessageFromServer(`firstMessageText`, messageNumber, `nameOne`) => messageNumber
+        case StringMessageFromServer(`firstMessageText`, messageNumber, `nameOne`, `nameTwo`) => messageNumber
       })
       clientOne.expectMsgPF()({
-        case StringMessageFromServer(`firstMessageText`, `firstMessageIndex`, `nameOne`) => Unit
+        case StringMessageFromServer(`firstMessageText`, `firstMessageIndex`, `nameOne`, `nameTwo`) => Unit
       })
 
       val secondMessageText = "msgFromClientTwo"
       val secondMessageIndex = firstMessageIndex + 1
       clientTwo.send(testchatServer, Message(secondMessageText))
       clientOne.expectMsgPF()({
-        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`) => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`, `nameOne`) => Unit
       })
       clientTwo.expectMsgPF()({
-        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`) => Unit
+        case StringMessageFromServer(`secondMessageText`, `secondMessageIndex`, `nameTwo`, `nameOne`) => Unit
       })
     }
 

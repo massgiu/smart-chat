@@ -14,7 +14,7 @@ class ClientChatServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitS
     val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
 
     "Receive message from a chat server" in {
-      client.tell(StringMessageFromServer("testMessage", 0, "sender"),self)
+      client.tell(StringMessageFromServer("testMessage", 0, "sender", "client"),self)
       expectNoMessage()
     }
 
