@@ -70,7 +70,7 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
 class ActorLoginController(userName: String, clientRef : ActorRef,loginController : LoginController ) extends Actor {
 
   override def preStart(): Unit = {
-    clientRef ! Client.SetActorLogin(Option(self))
+    clientRef ! Client.SetActorLogin(self)
     clientRef ! Client.LogInFromConsole(userName)
   }
 
