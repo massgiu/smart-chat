@@ -12,10 +12,17 @@ import javafx.application.{Application, Platform}
 import javafx.collections.{FXCollections, ObservableList}
 import javafx.event.ActionEvent
 import javafx.fxml.Initializable
+import javafx.geometry.Pos
 import javafx.scene.control.Alert.AlertType
 import javafx.scene.control._
 import javafx.scene.image.ImageView
+import javafx.scene.layout.HBox
 import javafx.stage.{FileChooser, Stage}
+import javafx.scene.layout.Background
+import javafx.scene.layout.BackgroundFill
+import javafx.scene.layout.HBox
+import javafx.scene.paint.Color
+import rumorsapp.{BubbleSpec, BubbledLabel}
 
 class LaunchClientView extends Application{
   override def start(primaryStage: Stage): Unit = {
@@ -42,13 +49,13 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   @FXML
   var usernameLabel : Label = _
   @FXML
-  var chatPanel : ListView[String] = _
+  var chatPanel : ListView[HBox] = _
   @FXML
   var onlineCountLabel : Label = _
   @FXML
   var newChatGroupButton : Button = _
 
-  var chatMessage : ObservableList[String] = FXCollections.observableArrayList()
+  var chatMessage : ObservableList[HBox] = FXCollections.observableArrayList()
   var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
@@ -59,7 +66,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   @FXML
   def userSelected(): Unit = {
     clientRef ! Client.RequestForChatCreationFromConsole(userListView.getSelectionModel.getSelectedItem)
-    updateMessageView(userListView.getSelectionModel.getSelectedItem)
+    reLoadView(userListView.getSelectionModel.getSelectedItem)
   }
 
   @FXML
@@ -121,19 +128,42 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     })
   }
 
-  def updateMessageView(recipient: String): Unit ={
-    Platform.runLater(()=>{
+  def drawBubble(recipient : String) : Unit = {
+    chatPanel.getItems.clear()
+    val allMessageForRecipient = storyMessageChat(recipient)
+    allMessageForRecipient.map(msg => if (msg.sender == userName) {
+      val bubble: BubbledLabel = new BubbledLabel
+      bubble.setText(msg.message)
+      bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
+      val horizontalBox = new HBox
+      horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
+      horizontalBox.setAlignment(Pos.TOP_RIGHT)
+      bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
+      horizontalBox.getChildren.addAll(bubble)
+      horizontalBox
+    } else {
+      val bubble: BubbledLabel = new BubbledLabel
+      bubble.setText(msg.sender + ": " + msg.message)
+      bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
+      val horizontalBox = new HBox
+      bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
+      horizontalBox.getChildren.addAll(bubble)
+      horizontalBox
+    }).foreach(hbox => chatPanel.getItems.add(hbox))
+  }
+
+  def reLoadView(recipient : String) : Unit = {
+    Platform.runLater(() => {
+      //clear panel if there ins't any message
+      chatPanel.getItems.clear()
+      chatPanel.setItems(chatMessage)
       if (storyMessageChat.contains(recipient)) {
-        chatMessage.clear()
-        val allMessageForRecipient = storyMessageChat(recipient)
-        allMessageForRecipient.foreach(elem => chatMessage.add(elem.sender + ": " + elem.message))
-        chatPanel.setItems(chatMessage)
-      } else {
-        chatMessage.clear()
-        chatPanel.setItems(chatMessage)
+        drawBubble(recipient)
       }
     })
   }
+
+  def updateMessageView(recipient: String): Unit = Platform.runLater(()=> drawBubble(recipient))
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = {
     storyMessageChat = storyMessage
