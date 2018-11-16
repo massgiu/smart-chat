@@ -14,7 +14,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
   var userRefMap: Map[String, ActorRef] = Map.empty
   val registerFilePath : String = "src/main/scala/res/server.conf"
   var userName : String = _
-  var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty //key is recipient
+  var storyMessageChat : Map[String,List[Option[StringMessageFromServer]]] = Map.empty //key is recipient
 
   var register : ActorSelection  = _
   var chatServer : ActorRef = _
@@ -49,12 +49,22 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash{
       var recipient : String = new String
       if (userName!=senderName) recipient = senderName else recipient = recipientName
       storyMessageChat.keys.find(key => recipient == key).fold(
-        storyMessageChat += (recipient -> List(StringMessageFromServer(message,messageNumber,senderName,recipient))))(existingRecip =>{
-          var tmpStoryMessage : List[StringMessageFromServer] = storyMessageChat(existingRecip)
-          tmpStoryMessage = StringMessageFromServer(message,messageNumber,senderName,recipient) :: tmpStoryMessage
-          storyMessageChat += (existingRecip -> tmpStoryMessage)
+        storyMessageChat += (recipient -> List(Option(StringMessageFromServer(message,messageNumber,senderName,recipient)))))(existingRecip =>{
+          var temp = storyMessageChat(existingRecip).toArray
+          if (messageNumber > temp.head.get.messageNumber) {
+            for (a <- temp.head.get.messageNumber + 1 until messageNumber) {
+              temp = Option.empty +: temp
+            }
+            temp = Option(StringMessageFromServer(message,messageNumber,senderName,recipient)) +: temp
+          } else {
+            temp(temp.length - messageNumber.toInt) = Option(StringMessageFromServer(message,messageNumber,senderName,recipient))
+          }
+          storyMessageChat += (existingRecip -> temp.toList)
         })
-      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(storyMessageChat,recipient))
+      val toSend = storyMessageChat
+        .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(toSend,recipient))
     case StringMessageFromConsole(message, recipient) => {
       //search map with key==recipient
       userRefMap.find(nameAndRef=>nameAndRef._1==recipient).fold({
