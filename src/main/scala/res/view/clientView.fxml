@@ -34,8 +34,8 @@
                                 <Font name="SansSerif Regular" size="14.0" />
                             </font>
                         </TextArea>
-                        <Button fx:id="sendButton" onAction="#sendButtonAction"  alignment="CENTER" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" prefHeight="43.0" prefWidth="140.0" scaleShape="false" text="Send" textAlignment="CENTER" HBox.hgrow="NEVER" />
-                        <Button fx:id="attachmentButton" onAction="#attachmentButtonAction" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false">
+                        <Button fx:id="sendButton" alignment="CENTER" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#sendButtonAction" prefHeight="43.0" prefWidth="140.0" scaleShape="false" text="Send" textAlignment="CENTER" HBox.hgrow="NEVER" stylesheets="@../styles/ButtonStyle.css"/>
+                        <Button fx:id="attachmentButton" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#attachmentButtonAction">
                             <graphic>
                                 <ImageView fx:id="attachmentView" fitHeight="24.0" fitWidth="24.0" pickOnBounds="true" preserveRatio="true">
                                     <image>
@@ -74,7 +74,7 @@
                         </Label>
                     </children>
                 </HBox>
-                <ListView fx:id="userListView" onMouseClicked="#userSelected" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="255.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
+                <ListView fx:id="userListView" focusTraversable="false" maxHeight="1.7976931348623157E308" onMouseClicked="#userSelected" prefHeight="255.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
                 </ListView>
 
                 <HBox fx:id="activeGroupsHbox" minHeight="-Infinity" minWidth="-Infinity" prefHeight="50.0" prefWidth="217.0" stylesheets="@../styles/ListViewStyle.css">
@@ -92,7 +92,7 @@
                         </Label>
                     </children>
                 </HBox>
-                <ListView fx:id="groupListView" onMouseClicked="#groupSelected" focusTraversable="false" maxHeight="1.7976931348623157E308" prefHeight="245.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
+                <ListView fx:id="groupListView" focusTraversable="false" maxHeight="1.7976931348623157E308" onMouseClicked="#groupSelected" prefHeight="245.0" prefWidth="217.0" style="-fx-border-image-width: 0;" stylesheets="@../styles/ListViewStyle.css">
                 </ListView>
             </children>
         </VBox>
@@ -100,25 +100,14 @@
     <top>
         <BorderPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" style="-fx-background-color: #34a2ff;" BorderPane.alignment="CENTER">
             <right>
-                <HBox prefHeight="24.0" prefWidth="30.0" stylesheets="@../styles/ButtonStyle.css" BorderPane.alignment="CENTER">
+                <HBox prefHeight="24.0" prefWidth="50.0" stylesheets="@../styles/ButtonStyle.css" BorderPane.alignment="CENTER">
                     <children>
-                        <ImageView fx:id="settingsImageView" fitHeight="23.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" styleClass="button">
-                            <image>
-                                <Image url="@../img/settings.png" />
-                            </image>
-                            <HBox.margin>
-                                <Insets right="30.0" top="30.0" />
-                            </HBox.margin>
-                            <cursor>
-                                <Cursor fx:constant="HAND" />
-                            </cursor>
-                        </ImageView>
 
-                        <Button fx:id="closeButton" onAction="#closeButtonAction" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false">
+                        <Button fx:id="newChatGroupButton" onAction="#createChatGroupButton" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="77.0" prefWidth="72.0">
                             <graphic>
-                                <ImageView fx:id="closeImageView" fitHeight="22.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true" styleClass="button">
+                                <ImageView fx:id="newChatGroupView" fitHeight="22.0" fitWidth="48.0" pickOnBounds="true" preserveRatio="true" styleClass="button">
                                     <image>
-                                        <Image url="@../img/close.png" />
+                                        <Image url="@../img/new_chat_group.png" />
                                     </image>
                                     <HBox.margin>
                                         <Insets right="30.0" top="30.0" />
@@ -128,6 +117,9 @@
                                     </cursor>
                                 </ImageView>
                             </graphic>
+                             <HBox.margin>
+                                <Insets bottom="4.0" right="2.0" top="4.0" />
+                             </HBox.margin>
                         </Button>
 
                     </children>

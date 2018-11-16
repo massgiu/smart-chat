@@ -4,7 +4,7 @@ import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
-import ActorViewController.{UpdateStoryMessage, ResponseForChatCreation, UpdateUserAndGroupActive}
+import ActorViewController.{ResponseForChatCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
 import Client.StringMessageFromServer
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
@@ -12,6 +12,7 @@ import javafx.application.{Application, Platform}
 import javafx.collections.{FXCollections, ObservableList}
 import javafx.event.ActionEvent
 import javafx.fxml.Initializable
+import javafx.scene.control.Alert.AlertType
 import javafx.scene.control._
 import javafx.scene.image.ImageView
 import javafx.stage.{FileChooser, Stage}
@@ -26,8 +27,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   import javafx.fxml.FXML
 
-  @FXML
-  var closeButton : Button = _
   @FXML
   var settingsImageView : ImageView = _
   @FXML
@@ -46,6 +45,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   var chatPanel : ListView[String] = _
   @FXML
   var onlineCountLabel : Label = _
+  @FXML
+  var newChatGroupButton : Button = _
 
   var chatMessage : ObservableList[String] = FXCollections.observableArrayList()
   var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty
@@ -63,12 +64,22 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   @FXML
   def groupSelected(): Unit = {
-    println(groupListView.getSelectionModel.getSelectedItem)
+    val dialog = new Alert(AlertType.CONFIRMATION)
+    dialog.setTitle("Confirmation Dialog")
+    dialog.setHeaderText("Do you confirm to add to chatGroup: " +groupListView.getSelectionModel.getSelectedItem)
+    import javafx.scene.control.ButtonType
+    val result = dialog.showAndWait
+    if (result.get() == ButtonType.OK) println("Request to add to chatGroup: "+ groupListView.getSelectionModel.getSelectedItem)
   }
 
-  def closeButtonAction(event:ActionEvent): Unit ={
-    val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
-    stage.close()
+  @FXML
+  def createChatGroupButton(event:ActionEvent) : Unit = {
+    val dialog = new TextInputDialog()
+    dialog.setTitle("Create new chat group")
+    dialog.setHeaderText("Chat group name:")
+    dialog.setContentText("Name:")
+    val result = dialog.showAndWait
+    result.ifPresent((chatGroupName: String) => println("Request to create chatGroup: " + chatGroupName))
   }
 
   def sendButtonAction(event:ActionEvent): Unit = {
