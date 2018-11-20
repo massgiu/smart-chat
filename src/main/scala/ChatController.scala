@@ -1,4 +1,3 @@
-
 import java.io.File
 import java.net.URL
 import java.util
@@ -15,6 +14,7 @@ import javafx.fxml.Initializable
 import javafx.scene.control._
 import javafx.scene.image.ImageView
 import javafx.stage.{FileChooser, Stage}
+import FXInteractor.interactionWithUI
 
 class LaunchClientView extends Application{
   override def start(primaryStage: Stage): Unit = {
@@ -94,7 +94,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   def updateUserGroupList(users:List[String], groups:List[String]) : Unit ={
-    Platform.runLater(()=>  {
+    //Platform.runLater(()=>  {
       var convertoToObservable : util.ArrayList[String] = new util.ArrayList[String]()
       users.filter(elem=>elem!=userName).foreach(elem=>convertoToObservable.add(elem))
       val userList: ObservableList[String] = FXCollections.observableArrayList(convertoToObservable)
@@ -107,11 +107,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       var groupList: ObservableList[String] = FXCollections.observableArrayList(convertoToObservable)
       groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
       groupListView.setItems(groupList)
-    })
+    //})
   }
 
   def updateMessageView(recipient: String): Unit ={
-    Platform.runLater(()=>{
+    //Platform.runLater(()=>{
       if (storyMessageChat.contains(recipient)) {
         chatMessage.clear()
         val allMessageForRecipient = storyMessageChat(recipient)
@@ -121,7 +121,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         chatMessage.clear()
         chatPanel.setItems(chatMessage)
       }
-    })
+    //})
   }
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = {
@@ -138,11 +138,21 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
 
   override def receive: Receive = {
     case UpdateUserAndGroupActive(userList:List[String], groupList:List[String])=>
-      chatController.updateUserGroupList(userList, groupList)
-    case ResponseForChatCreation(response: Boolean) => Unit
+      interactionWithUI {
+        chatController.updateUserGroupList(userList, groupList)
+      }
+    case ResponseForChatCreation(_: Boolean) => Unit
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
-      chatController.updateMessageStory(storyMessage)
-      chatController.updateMessageView(recipient)
+      interactionWithUI {
+        chatController.updateMessageStory(storyMessage)
+        chatController.updateMessageView(recipient)
+      }
+  }
+}
+
+object FXInteractor {
+  def interactionWithUI(fun: => Unit): Unit = {
+    Platform.runLater(() => fun)
   }
 }
 
