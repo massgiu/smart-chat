@@ -1,4 +1,3 @@
-
 import java.io.File
 import java.net.URL
 import java.util
@@ -6,6 +5,7 @@ import java.util.ResourceBundle
 
 import ActorViewController.{ResponseForChatCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
 import Client.StringMessageFromServer
+import FXInteractor.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import javafx.application.{Application, Platform}
@@ -72,13 +72,13 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   @FXML
   def userSelected(): Unit = {
     if (userListView.getSelectionModel.getSelectedItem!=null) {
-        actualUserSelected = userListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText
-        indexActualUserSelected = userListView.getSelectionModel.getSelectedIndex
-        clientRef ! Client.RequestForChatCreationFromConsole(actualUserSelected)
-        //remove green notification
-        updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
-        drawMessageView(actualUserSelected)
-      }
+      actualUserSelected = userListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText
+      indexActualUserSelected = userListView.getSelectionModel.getSelectedIndex
+      clientRef ! Client.RequestForChatCreationFromConsole(actualUserSelected)
+      //remove green notification
+      updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
+      drawMessageView(actualUserSelected)
+    }
   }
 
   @FXML
@@ -104,11 +104,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   def sendButtonAction(event:ActionEvent): Unit = {
-    var itemNameSelected = new String
-    if (actualUserSelected!=null) itemNameSelected = actualUserSelected
+    var itemNameSelected: Option[String] = Option.empty
+    if (actualUserSelected!=null && actualUserSelected.length>0) itemNameSelected = Option(actualUserSelected)
     else if (groupListView.getSelectionModel.getSelectedItem!=null)
-      itemNameSelected = groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText
-    clientRef ! Client.StringMessageFromConsole(messageBox.getText(), itemNameSelected)
+      itemNameSelected = Option(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+    itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item))
     messageBox.clear()
   }
 
@@ -122,90 +122,86 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   //Draw useListView and groupListView
-  def updateUserGroupList(users:List[String], groups:List[String], recipientNotification : Option[String], notificationToRemove : Option[String]) : Unit ={
+  def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[String], notificationToRemove: Option[String]): Unit = {
     userList = users
     groupList = groups
     users.foreach(elem => {
-      recipientNotification.foreach(recipientNotif => if (elem==recipientNotif)
-        listNotification = (elem, true)::listNotification)
-      notificationToRemove.foreach(notificationToRem=> if (elem==notificationToRem)
-        listNotification = listNotification.filter(_._1!=elem))
+      recipientNotification.foreach(recipientNotif => if (elem == recipientNotif)
+        listNotification = (elem, true) :: listNotification)
+      notificationToRemove.foreach(notificationToRem => if (elem == notificationToRem)
+        listNotification = listNotification.filter(_._1 != elem))
     })
-    Platform.runLater(()=>  {
-      var convertoToObservable : util.ArrayList[HBox] = new util.ArrayList[HBox]()
-      users.filter(name=>name!=userName).foreach(name=>{
-        var hbox = new HBox()
-        val texName = new Text(name)
-        var imageView  = new ImageView()
-        texName.setStyle("-fx-font: 16 arial;")
-        //add name to list if is not contained in listNotification
-        if (listNotification.contains(name,true)){
-          val onLineImage = new Image(getClass.getClassLoader.getResource("res/img/online.png").toString)
-          imageView = new ImageView(onLineImage)
-          hbox.getChildren.addAll(texName,imageView) //textName and image
-        } else hbox.getChildren.addAll(texName,imageView) //textName and image
+    var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
+    users.filter(name => name != userName).foreach(name => {
+      var hbox = new HBox()
+      val texName = new Text(name)
+      var imageView = new ImageView()
+      texName.setStyle("-fx-font: 16 arial;")
+      //add name to list if is not contained in listNotification
+      if (listNotification.contains(name, true)) {
+        val onLineImage = new Image(getClass.getClassLoader.getResource("res/img/online.png").toString)
+        imageView = new ImageView(onLineImage)
+        hbox.getChildren.addAll(texName, imageView) //textName and image
+      } else hbox.getChildren.addAll(texName, imageView) //textName and image
 
-        hbox.setAlignment(Pos.CENTER_LEFT)
-        convertoToObservable.add(hbox)
-        val userList: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
-        userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
-        userListView.setItems(userList)
-        //focus element on userList if a user is selected
-        if (actualUserSelected!="") userListView.getSelectionModel.selectIndices(indexActualUserSelected)
-        //set label with users count
-        onlineCountLabel.setText(userList.size().toString)
-      })
-
-      //groupList
-      convertoToObservable.clear()
-      groups.foreach(elem=>{
-        var hbox = new HBox()
-        val texName = new Text(elem)
-        texName.setStyle("-fx-font: 16 arial;")
-        hbox.getChildren.addAll(texName) //textName and image
-        hbox.setAlignment(Pos.CENTER_LEFT)
-        convertoToObservable.add(hbox)
-      })
-      var groupList: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
-      groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
-      groupListView.setItems(groupList)
+      hbox.setAlignment(Pos.CENTER_LEFT)
+      convertoToObservable.add(hbox)
+      val userListHbox: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
+      userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+      userListView.setItems(userListHbox)
+      //focus element on userList if a user is selected
+      if (actualUserSelected.length>0) userListView.getSelectionModel.selectIndices(indexActualUserSelected)
+      //set label with users count
+      onlineCountLabel.setText(userListHbox.size().toString)
     })
+
+    //groupList
+    convertoToObservable.clear()
+    groups.foreach(elem => {
+      var hbox = new HBox()
+      val texName = new Text(elem)
+      texName.setStyle("-fx-font: 16 arial;")
+      hbox.getChildren.addAll(texName) //textName and image
+      hbox.setAlignment(Pos.CENTER_LEFT)
+      convertoToObservable.add(hbox)
+    })
+    val groupListHbox: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
+    groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+    groupListView.setItems(groupListHbox)
   }
 
   def updateMessageView(recipient : String) : Unit = {
     //if message comes from a different chat among the one selected, there are more than 1 chat and sender is not recipient
     if (userListView.getItems.size() > 1 && recipient != actualUserSelected ) {
       //redraw userList with green notification for recipient
-      updateUserGroupList(userList, groupList, Option(recipient),None)
+      updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
     } else drawMessageView(recipient)
   }
 
-  def drawMessageView(recipient : String): Unit ={
-    Platform.runLater(()=> {
-      chatPanel.getItems.clear()
-      if (storyMessageChat.contains(recipient)) {
-        val allMessageForRecipient = storyMessageChat(recipient)
-        allMessageForRecipient.map(msg => if (msg.sender == userName) {
-          val bubble: BubbledLabel = new BubbledLabel
-          bubble.setText(msg.message)
-          bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
-          val horizontalBox = new HBox
-          horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
-          horizontalBox.setAlignment(Pos.TOP_RIGHT)
-          bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
-          horizontalBox.getChildren.addAll(bubble)
-          horizontalBox
-        } else {
-          val bubble: BubbledLabel = new BubbledLabel
-          bubble.setText(msg.sender + ": " + msg.message)
-          bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
-          val horizontalBox = new HBox
-          bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
-          horizontalBox.getChildren.addAll(bubble)
-          horizontalBox
-        }).foreach(hbox => chatPanel.getItems.add(hbox))
-      }
-    })
+  def drawMessageView(recipient: String): Unit = {
+    chatPanel.getItems.clear()
+    if (storyMessageChat.contains(recipient)) {
+      val allMessageForRecipient = storyMessageChat(recipient)
+      allMessageForRecipient.map(msg => if (msg.sender == userName) {
+        val bubble: BubbledLabel = new BubbledLabel
+        bubble.setText(msg.message)
+        bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
+        val horizontalBox = new HBox
+        horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
+        horizontalBox.setAlignment(Pos.TOP_RIGHT)
+        bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
+        horizontalBox.getChildren.addAll(bubble)
+        horizontalBox
+      } else {
+        val bubble: BubbledLabel = new BubbledLabel
+        bubble.setText(msg.sender + ": " + msg.message)
+        bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
+        val horizontalBox = new HBox
+        bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
+        horizontalBox.getChildren.addAll(bubble)
+        horizontalBox
+      }).foreach(hbox => chatPanel.getItems.add(hbox))
+    }
   }
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
@@ -220,11 +216,21 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
 
   override def receive: Receive = {
     case UpdateUserAndGroupActive(userList:List[String], groupList:List[String])=>
-      chatController.updateUserGroupList(userList, groupList, None, None)
-    case ResponseForChatCreation(response: Boolean) => Unit
+      interactionWithUI {
+        chatController.updateUserGroupList(userList, groupList, Option.empty, Option.empty)
+      }
+    case ResponseForChatCreation(_: Boolean) => Unit
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
-      chatController.updateMessageStory(storyMessage)
-      chatController.updateMessageView(recipient)
+      interactionWithUI {
+        chatController.updateMessageStory(storyMessage)
+        chatController.updateMessageView(recipient)
+      }
+  }
+}
+
+object FXInteractor {
+  def interactionWithUI(fun: => Unit): Unit = {
+    Platform.runLater(() => fun)
   }
 }
 
