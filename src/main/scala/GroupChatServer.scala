@@ -1,26 +1,38 @@
 import Client.StringMessageFromServer
 import GroupChatServer.{AddMember, GroupMessage, RemoveMember}
 import akka.actor.{Actor, ActorRef}
+import Utils._
 
-class GroupChatServer(m: Set[ActorRef] = Set.empty) extends Actor {
+class GroupChatServer(m: Map[String, ActorRef] = Map.empty) extends Actor {
 
-  var members: Set[ActorRef] = m
+  var members: Map[String, ActorRef] = m
   private var messageNumber: Long = 0
 
   override def receive: Receive =  {
-    case AddMember(member) => members += member
-    case RemoveMember(member) => members -= member
-    case GroupMessage(text) =>
+    case AddMember(name: String, actRef : ActorRef) =>
+      findInMap(name,members)
+        .ifSuccess(_ => sender ! RegisterServer.ResponseFromJoinRequest(false))
+        .orElse(value => {
+          members += (name-> actRef)
+          sender ! RegisterServer.ResponseFromJoinRequest(true)
+        })
+    case RemoveMember(name) =>
+      findInMap(name,members)
+        .ifSuccess(user => {
+          members.filterKeys(_ != user)
+          RegisterServer.ResponseFromUnJoinRequest(true)
+        })
+        .orElse(_ => sender ! RegisterServer.ResponseFromUnJoinRequest(false))
+    case GroupMessage(text, senderName) =>
       messageNumber += 1
-      members.foreach(m => m ! StringMessageFromServer(text, messageNumber, "", "")) //"" is wrong
+      members.keys.foreach(name => members(name) ! StringMessageFromServer(text, messageNumber, senderName,name))
     case _ => println("unknown message")
   }
-
 }
 
 object GroupChatServer {
-  case class AddMember(member: ActorRef)
-  case class RemoveMember(member: ActorRef)
-  case class GroupMessage(text: String)
+  case class AddMember(name: String, actRef: ActorRef)
+  case class RemoveMember(name: String)
+  case class GroupMessage(text: String, senderName : String)
   case class GroupAttachment(payload:AttachmentContent)
 }

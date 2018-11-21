@@ -94,6 +94,9 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash {
       register.tell(NewGroupChatRequest(groupName), self)
     case JoinGroupRequestFromConsole(groupName: String) =>
       register.tell(JoinGroupChatRequest(groupName), self)
+    case ResponseForJoinGroupRequest(response : Boolean, groupName : String) =>
+      if (response) println("Joined to "+ groupName + " accepted!")
+      else println("Joined to "+ groupName + " refused!")
     case ResponseForChatCreation(response) =>
       if (response) {
         println("Chat creation done!")
@@ -194,11 +197,17 @@ object Client {
   final case class JoinGroupRequestFromConsole(groupName:String)
 
   /**
-    * Response from server about client request
-    * for chat creation
+    * Response from server about client request for chat creation
     * @param accept response from server
     */
   final case class ResponseForChatCreation(accept : Boolean)
+
+  /**
+    * Response from server about client request to join to an existing chat group
+    * @param accept response from server
+    * @param groupName group name
+    */
+  final case class ResponseForJoinGroupRequest(accept : Boolean, groupName: String)
 
   /**
     * Get response from server about the reference of an oneToOne or group chat
