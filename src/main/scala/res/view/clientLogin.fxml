@@ -47,14 +47,7 @@
                 <HBox alignment="TOP_RIGHT" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="2">
                     <children>
 
-                        <Button fx:id="closeButton" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#closeButtonAction" stylesheets="@../styles/ButtonStyle.css">
-                            <graphic>
-                                <ImageView fx:id="closeView" fitHeight="24.0" fitWidth="24.0" pickOnBounds="true" preserveRatio="true" styleClass="..\styles\ButtonStyles.css">
-                                    <image>
-                                        <Image url="@../img/close.png" />
-                                    </image>
-                                </ImageView>
-                            </graphic></Button>
+
 
                     </children>
                     <GridPane.margin>

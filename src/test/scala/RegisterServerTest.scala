@@ -1,4 +1,4 @@
-import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, ResponseForServerRefRequest, UserAndGroupActive}
+import Client._
 import RegisterServer._
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -113,6 +113,26 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       //ClientOne request to join to an inexistent chat group
       clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
       clientOne.expectMsg(ResponseForChatCreation(false))
+    }
+    "delete a chat server when one of its members leaves and unregister him" in {
+      val server = system.actorOf(Props[RegisterServer], name = "welcomeServer12")
+      val clientOne = ("one", TestProbe("one"))
+      val clientTwo = ("two", TestProbe("two"))
+      clientOne._2.send(server, RegisterServer.JoinRequest(clientOne._1))
+      clientOne._2.expectMsg(AcceptRegistrationFromRegister(true))
+      clientOne._2.expectMsgClass(classOf[UserAndGroupActive])
+      clientTwo._2.send(server, RegisterServer.JoinRequest(clientTwo._1))
+      clientTwo._2.expectMsg(AcceptRegistrationFromRegister(true))
+      clientTwo._2.expectMsgClass(classOf[UserAndGroupActive])
+      clientOne._2.expectMsgClass(classOf[UserAndGroupActive])
+      clientOne._2.send(server, NewOneToOneChatRequest(clientTwo._1))
+      clientOne._2.expectMsg(ResponseForChatCreation(true))
+      clientTwo._2.send(server, GetServerRef(clientOne._1))
+      clientTwo._2.expectMsgPF()({case ResponseForServerRefRequest(response) if response.isDefined => Unit})
+      clientOne._2.send(server, Unjoin())
+      clientTwo._2.expectMsg(UserAndGroupActive(List(clientTwo._1), List.empty))
+      clientTwo._2.send(server, GetServerRef(clientOne._1))
+      clientTwo._2.expectMsgPF()({case ResponseForServerRefRequest(response) if response.isEmpty => Unit})
     }
     "send an empty option when a client asks for a non-existing chat server and send the right one when two chat server are present" in {
       val nameOne = "clientOne"
