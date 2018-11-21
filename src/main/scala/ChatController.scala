@@ -1,14 +1,12 @@
-import java.io.File
 import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
 import ActorViewController.{ResponseForChatCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
 import Client.StringMessageFromServer
-import FXInteractor.interactionWithUI
+import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import com.typesafe.config.ConfigFactory
-import javafx.application.{Application, Platform}
+import akka.util.Helpers.Requiring
 import javafx.collections.{FXCollections, ObservableList}
 import javafx.event.ActionEvent
 import javafx.fxml.Initializable
@@ -16,19 +14,11 @@ import javafx.geometry.Pos
 import javafx.scene.control.Alert.AlertType
 import javafx.scene.control._
 import javafx.scene.image.{Image, ImageView}
-import javafx.stage.{FileChooser, Stage}
-import javafx.scene.layout.Background
-import javafx.scene.layout.BackgroundFill
-import javafx.scene.layout.HBox
+import javafx.scene.layout.{Background, BackgroundFill, HBox}
 import javafx.scene.paint.Color
 import javafx.scene.text.Text
+import javafx.stage.FileChooser
 import rumorsapp.{BubbleSpec, BubbledLabel}
-
-class LaunchClientView extends Application{
-  override def start(primaryStage: Stage): Unit = {
-    ActorSystem.create("MySystem",ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
-  }
-}
 
 class ChatController(userName : String, clientRef : ActorRef, system: ActorSystem) extends Initializable{
 
@@ -132,6 +122,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         listNotification = listNotification.filter(_._1 != elem))
     })
     var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
+    userListView.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
       var hbox = new HBox()
       val texName = new Text(name)
@@ -143,7 +134,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         imageView = new ImageView(onLineImage)
         hbox.getChildren.addAll(texName, imageView) //textName and image
       } else hbox.getChildren.addAll(texName, imageView) //textName and image
-
       hbox.setAlignment(Pos.CENTER_LEFT)
       convertoToObservable.add(hbox)
       val userListHbox: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
@@ -154,7 +144,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       //set label with users count
       onlineCountLabel.setText(userListHbox.size().toString)
     })
-
     //groupList
     convertoToObservable.clear()
     groups.foreach(elem => {
@@ -225,12 +214,6 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
         chatController.updateMessageStory(storyMessage)
         chatController.updateMessageView(recipient)
       }
-  }
-}
-
-object FXInteractor {
-  def interactionWithUI(fun: => Unit): Unit = {
-    Platform.runLater(() => fun)
   }
 }
 

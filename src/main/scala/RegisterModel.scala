@@ -29,6 +29,10 @@ class RegisterModel {
     users -= clientName
   }
 
+  def removeOneToOneChatServer(chatServer: ActorRef): Unit = {
+    chats = chats.filterNot(_ == chatServer)
+  }
+
   def getAllUsersAndGroupsNames: OperationDone[(List[String], List[String])] = {
     val result = Option((users.keys.toList, groups.keys.toList))
     OperationDone(result.isDefined, if (result.isDefined) List(result.get) else List.empty)

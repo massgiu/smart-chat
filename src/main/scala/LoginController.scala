@@ -2,35 +2,36 @@
 import java.io.File
 
 import ActorLoginController.ResponseFromLogin
+import Client.StopRequest
+import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
-import javafx.application.{Application, Platform}
+import javafx.application.Application
 import javafx.event.ActionEvent
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.Scene
 import javafx.scene.control.{Button, Label, TextField}
 import javafx.stage.Stage
 
-class LaunchClientLogin extends Application{
+class LaunchClientLogin extends Application {
 
-    override def start(primaryStage: Stage): Unit = {
-      val system = ActorSystem.create("MySystem",ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
-      val clientRef = system.actorOf(Props(classOf[Client],system))
-      //login GUI
-      val loaderLogin : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientLogin.fxml"))
-      val loginController = new LoginController(clientRef,system)
-      loaderLogin.setController(loginController)
-      val sceneLogin = new Scene(loaderLogin.load())
-      primaryStage.setTitle("Login Client View")
-      primaryStage.setScene(sceneLogin)
-      primaryStage.show()
+  override def start(primaryStage: Stage): Unit = {
+    val system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
+    val clientRef = system.actorOf(Props(classOf[Client], system))
+    primaryStage.setOnCloseRequest(_ => clientRef ! StopRequest)
+    //login GUI
+    val loaderLogin: FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientLogin.fxml"))
+    val loginController = new LoginController(clientRef, system)
+    loaderLogin.setController(loginController)
+    val sceneLogin = new Scene(loaderLogin.load())
+    primaryStage.setTitle("Login Client View")
+    primaryStage.setScene(sceneLogin)
+    primaryStage.show()
   }
 }
 
 class LoginController(clientRef : ActorRef, system : ActorSystem) {
 
-  @FXML
-  var closeButton : Button = _
   @FXML
   var connectButton : Button = _
   @FXML
@@ -43,27 +44,14 @@ class LoginController(clientRef : ActorRef, system : ActorSystem) {
       usernameTextfield.getText, clientRef, this)) else loginRefuse()
   }
 
-  def closeButtonAction(event:ActionEvent): Unit ={
-    val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
-    stage.close()
+  def loginAccepted(userName: String): Unit = {
+    val loaderChat: FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
+    loaderChat.setController(new ChatController(userName, clientRef, system))
+    usernameTextfield.getScene.getWindow.asInstanceOf[Stage].setScene(new Scene(loaderChat.load()))
   }
 
-  def loginAccepted(userName : String) = {
-    Platform.runLater(()=> {
-      val loaderChat : FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientView.fxml"))
-      //Chat Gui
-      loaderChat.setController(new ChatController(userName,clientRef,system))
-      val sceneChat = new Scene(loaderChat.load())
-      val stageChat = new Stage()
-      stageChat.setScene(sceneChat)
-      stageChat.show()
-      val stage = closeButton.getScene.getWindow.asInstanceOf[Stage]
-      stage.close()
-    })
-  }
-
-  def loginRefuse() ={
-    Platform.runLater(()=>  messageLabel.setText("Invalid userName"))
+  def loginRefuse(): Unit ={
+    messageLabel.setText("Invalid userName")
   }
 }
 
@@ -75,9 +63,14 @@ class ActorLoginController(userName: String, clientRef : ActorRef,loginControlle
   }
 
   override def receive: Receive = {
-    case ResponseFromLogin(accept : Boolean) => accept match {
-      case true => loginController.loginAccepted(userName)
-      case _ => loginController.loginRefuse()
+    case ResponseFromLogin(accept : Boolean) => if (accept) {
+      interactionWithUI {
+        loginController.loginAccepted(userName)
+      }
+    } else {
+      interactionWithUI {
+        loginController.loginRefuse()
+      }
     }
   }
 }

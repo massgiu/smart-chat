@@ -23,7 +23,7 @@ class RegisterServer extends Actor {
     case JoinRequest(clientName) => model.addNewUser(clientName, sender)
       .ifSuccess(_ => {sender ! AcceptRegistrationFromRegister(true); sendNewServersToAllClients()})
       .orElse(_ => sender ! AcceptRegistrationFromRegister(false))
-    case Unjoin() => model.removeUser(senderName)
+    case Unjoin() => unregisterUser(sender); sendNewServersToAllClients()
     case NewOneToOneChatRequest(friendName) => createNewOneToOneChat(friendName)
       .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
       .orElse(_ => sender ! ResponseForChatCreation(accept = false))
@@ -91,6 +91,18 @@ class RegisterServer extends Actor {
 
   def sendNewServersToAllClients(): Unit = {
     model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
+  }
+
+  def unregisterUser(user: ActorRef): Unit = {
+    var userName = model.invalidName
+    model.findUserName(user).ifSuccess(name => userName = name.head)
+    model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(friend => {
+      findChatServerForMembers(userName, friend).ifSuccess(chatServer => {
+        model.removeOneToOneChatServer(chatServer.head)
+        context.stop(chatServer.head)
+      })
+    }))
+    model.removeUser(userName)
   }
 
   def ifSenderRegisteredOrElse(ifPresent: () => Unit, ifNotPresent: () => Unit): Unit = {

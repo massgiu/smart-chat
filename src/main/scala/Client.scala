@@ -6,8 +6,10 @@ import OneToOneChatServer.Message
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
 import com.typesafe.config.ConfigFactory
+import Utils._
+import akka.actor.TypedActor.PostStop
 
-class Client(system: ExtendedActorSystem) extends Actor with Stash {
+class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop {
 
   var users: List[String] = List()
   var groups: List[String] = List()
@@ -45,11 +47,9 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash {
       groups = groupList
       actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users, groups))
     case StringMessageFromServer(message, messageNumber, senderName, recipientName) =>
-      var recipient: String = new String
-      if (userName != senderName) recipient = senderName else recipient = recipientName
-      storyMessageChat.keys.find(key => recipient == key).fold(
-        storyMessageChat += (recipient -> List(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)))))(existingRecip => {
-        var temp = storyMessageChat(existingRecip).toArray
+      val recipient = if (userName != senderName) senderName else recipientName
+      findInMap(recipient, storyMessageChat).ifSuccess(messagesList => {
+        var temp = messagesList.head.toArray
         if (messageNumber > temp.head.get.messageNumber) {
           for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
             temp = Option.empty +: temp
@@ -58,34 +58,35 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash {
         } else {
           temp(temp.length - messageNumber.toInt) = Option(StringMessageFromServer(message, messageNumber, senderName, recipient))
         }
-        storyMessageChat += (existingRecip -> temp.toList)
-      })
+        storyMessageChat += (recipient -> temp.toList)
+      }).orElse(_ => storyMessageChat += (recipient -> List(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)))))
       val toSend = storyMessageChat
         .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
         .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
       actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(toSend, recipient))
     case StringMessageFromConsole(message, recipient) =>
       //search map with key==recipient
-      userRefMap.find(nameAndRef => nameAndRef._1 == recipient).fold({
-        register ! GetServerRef(recipient)
-        unstashAll()
-        context.become({
-          case ResponseForServerRefRequest(chatServer) => chatServer match {
-            case Some(_) =>
-              println("ChatServer found!")
-              userRefMap += (recipient -> chatServer.get)
-              unstashAll()
-              context.unbecome()
-              self ! StringMessageFromConsole(message, recipient)
-            case _ =>
-              println("ChatServer unreachable")
-              unstashAll()
-              context.unbecome()
-          }
-          case _ => stash()
-        }, discardOld = false) // stack on top instead of replacing
-
-      })(nameAndRef => nameAndRef._2 ! Message(message))
+      findInMap(recipient, userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
+        .orElse(_ => {
+          register ! GetServerRef(recipient)
+          unstashAll()
+          context.become({
+            case ResponseForServerRefRequest(chatServer) => chatServer match {
+              case Some(_) =>
+                println("ChatServer found!")
+                userRefMap += (recipient -> chatServer.get)
+                unstashAll()
+                context.unbecome()
+                self ! StringMessageFromConsole(message, recipient)
+              case _ =>
+                println("ChatServer unreachable")
+                unstashAll()
+                context.unbecome()
+            }
+            case _ => stash()
+          }, discardOld = false) // stack on top instead of replacing
+        })
     case AttachmentMessageFromServer(attachment, senderName, messageNumber) =>
     //Display data on view/console
     case AttachmentMessageFromConsole(attachment, recipientName) =>
@@ -120,7 +121,13 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash {
     case SetActorView(actorview) =>
       actorView = Option(actorview)
       actorView.get ! ActorViewController.UpdateUserAndGroupActive(users, groups)
+    case StopRequest =>
+      println("close request in client")
+      register ! Unjoin()
+      context.stop(self)
+      context.system.terminate()
   }
+
 }
 
 object Client {
@@ -229,5 +236,7 @@ object Client {
     * @param actorLogin ActorRef from Login
     */
   final case class SetActorLogin(actorLogin :ActorRef)
+
+  final case class StopRequest()
 
 }

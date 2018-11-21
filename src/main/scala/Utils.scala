@@ -1,4 +1,5 @@
 import MapExtension._
+import javafx.application.Platform
 
 object Utils {
 
@@ -15,6 +16,10 @@ object Utils {
       ifValid()
     else
       ifNotValid()
+  }
+
+  def interactionWithUI(fun: => Unit): Unit = {
+    Platform.runLater(() => fun)
   }
 }
 
