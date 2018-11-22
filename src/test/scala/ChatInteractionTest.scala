@@ -1,7 +1,7 @@
 import Client._
 import OneToOneChatServer.Message
-import RegisterServer.{ContainsMembers, GetServerRef, JoinGroupChatRequest, JoinRequest}
-import akka.actor.{Actor, ActorSystem, Props}
+import RegisterServer.{ GetServerRef}
+import akka.actor.{ ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -92,14 +92,14 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       //Request from ClientOne to create a chatGroup
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(ResponseForChatCreation(true))
-
-      //Request from ClientOne to join to chatGroup named "chatGroupName"
-      clientOne.send(server, RegisterServer.JoinGroupChatRequest("chatGroupName"))
-      clientOne.expectMsg(ResponseForChatCreation(true))
-
-      //Request from ClientTwo to join to chatGroup named "chatGroupName"
-      clientTwo.send(server, RegisterServer.JoinGroupChatRequest("chatGroupName"))
-      clientTwo.expectMsg(ResponseForChatCreation(true))
+//
+//      //Request from ClientOne to join to chatGroup named "chatGroupName"
+//      clientOne.send(server, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
+//      clientOne.expectMsg(ResponseForChatCreation(true))
+//
+//      //Request from ClientTwo to join to chatGroup named "chatGroupName"
+//      clientTwo.send(server, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
+//      clientTwo.expectMsg(ResponseForChatCreation(true))
     }
 
   }

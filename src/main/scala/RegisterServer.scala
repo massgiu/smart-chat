@@ -29,28 +29,9 @@ class RegisterServer extends Actor with Stash {
       .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
       .orElse(_ => sender ! ResponseForChatCreation(accept = false))
     case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
-      .ifSuccess(_ => sender ! ResponseForChatCreation(true))
+      .ifSuccess(_ => {sender ! ResponseForChatCreation(true); sendNewServersToAllClients()})
       .orElse(_ => sender ! ResponseForChatCreation(false))
       //Add/ remove li tolgo dal chat server
-    case JoinGroupChatRequest(group) =>
-      val onFail = () => sender ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
-        //inviare richiesta al chatGroup server
-        val clientReq = sender
-        model.findGroup(group).ifSuccess(actRef => actRef.head ! GroupChatServer.AddMember(senderName,sender))
-        context.become({
-          case ResponseFromJoinRequest(response) =>
-            unstashAll()
-            clientReq ! ResponseForJoinGroupRequest(response,group)
-            context.unbecome()
-          case _ => stash()
-        }, discardOld = false) // stack on top instead of replacing
-      }).orElse(_ => sender ! ResponseForJoinGroupRequest(accept = false,group)), onFail)
-    case UnJoinGroupChatRequest(group) =>
-      val onFail = () => sender ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
-        /////
-      }).orElse(_ => sender ! ResponseForJoinGroupRequest(accept = false,group)), onFail)
     case AllUsersAndGroupsRequest => model.getAllUsersAndGroupsNames
       .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
       .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
@@ -86,7 +67,7 @@ class RegisterServer extends Actor with Stash {
     var success = false
     ifNewNameIsValidOrElse(newGroupName, () =>
       ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
-        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map()))
+        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map(),newGroupName))
         model.addNewGroupChatServer(newGroupName, newGroupChatServer)
         success = true
       }), () => Unit), () => Unit)
@@ -104,9 +85,8 @@ class RegisterServer extends Actor with Stash {
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
   }
 
-  def sendNewServersToAllClients(): Unit = {
+  def sendNewServersToAllClients(): Unit =
     model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
-  }
 
   def unregisterUser(user: ActorRef): Unit = {
     var userName = model.invalidName
@@ -134,10 +114,7 @@ object RegisterServer {
   case class AllUsersAndGroupsRequest()
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest(newGroupName:String)
-  case class JoinGroupChatRequest(group:String)
-  case class UnJoinGroupChatRequest(group:String)
+
   case class GetServerRef(friendNname:String)
   case class ContainsMembers(trueOrFalse: Boolean)
-  case class ResponseFromJoinRequest(trueOrFalse : Boolean)
-  case class ResponseFromUnJoinRequest(trueOrFalse : Boolean)
 }

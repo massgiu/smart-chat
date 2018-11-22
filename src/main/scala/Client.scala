@@ -68,25 +68,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       //search map with key==recipient
       findInMap(recipient, userRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
-        .orElse(_ => {
-          register ! GetServerRef(recipient)
-          unstashAll()
-          context.become({
-            case ResponseForServerRefRequest(chatServer) => chatServer match {
-              case Some(_) =>
-                println("ChatServer found!")
-                userRefMap += (recipient -> chatServer.get)
-                unstashAll()
-                context.unbecome()
-                self ! StringMessageFromConsole(message, recipient)
-              case _ =>
-                println("ChatServer unreachable")
-                unstashAll()
-                context.unbecome()
-            }
-            case _ => stash()
-          }, discardOld = false) // stack on top instead of replacing
-        })
+        .orElse(_ => searchRefFromRegister(recipient, ()=> self ! StringMessageFromConsole(message, recipient)))
     case AttachmentMessageFromServer(attachment, senderName, messageNumber) =>
     //Display data on view/console
     case AttachmentMessageFromConsole(attachment, recipientName) =>
@@ -94,14 +76,27 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     case CreateGroupRequestFromConsole(groupName: String) =>
       register.tell(NewGroupChatRequest(groupName), self)
     case JoinGroupRequestFromConsole(groupName: String) =>
-      register.tell(JoinGroupChatRequest(groupName), self)
-    case ResponseForJoinGroupRequest(response : Boolean, groupName : String) =>
-      if (response) println("Joined to "+ groupName + " accepted!")
-      else println("Joined to "+ groupName + " refused!")
+      findInMap(groupName, userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! GroupChatServer.AddMember(userName,self))
+        .orElse(_ => searchRefFromRegister(groupName, ()=> self ! JoinGroupRequestFromConsole(groupName: String)))
+    case UnJoinGroupRequestFromConsole(groupName: String) =>
+      findInMap(groupName, userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! GroupChatServer.RemoveMember(userName))
     case ResponseForChatCreation(response) =>
       if (response) {
         println("Chat creation done!")
+        actorView.foreach(actor => actor ! ActorViewController.ResponseForChatGroupCreation(response))
       } else println("Chat creation refused!")
+    case ResponseForJoinGroupRequest(response : Boolean, groupName : String) =>
+      if (response) {
+        println("Joining to "+ groupName + " accepted!")
+//        actorView.foreach(actor => actor ! ActorViewController.???(response))
+      } else println("Joined to "+ groupName + " refused!")
+    case ResponseForUnJoinGroupRequest(response : Boolean, groupName : String) =>
+      if (response) {
+        println("Unjoinig from "+ groupName + " accepted!")
+//        actorView.foreach(actor => actor ! ActorViewController.???(response))
+      } else println("UnJoined from "+ groupName + " refused!")
     case LogInFromConsole(username) =>
       userName = username
       register ! JoinRequest(userName)
@@ -131,6 +126,24 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       context.system.terminate()
   }
 
+  def searchRefFromRegister(nameToSearch: String, recursiveMessage: () => Unit): Unit = {
+    register ! GetServerRef(nameToSearch : String)
+    context.become({
+      case ResponseForServerRefRequest(chatGroupServer) => chatGroupServer match {
+        case Some(_) =>
+          println("ChatServer/ChatGroupServer found!")
+          userRefMap += (nameToSearch -> chatGroupServer.get)
+          unstashAll()
+          context.unbecome()
+          recursiveMessage()
+        case _ =>
+          println("ChatServer/ChatGroupServer unreachable")
+          unstashAll()
+          context.unbecome()
+      }
+      case _ => stash()
+    }, discardOld = false) // stack on top instead of replacing
+  }
 }
 
 object Client {
@@ -204,6 +217,12 @@ object Client {
   final case class JoinGroupRequestFromConsole(groupName:String)
 
   /**
+    * Request to join to chat a group from client console
+    * @param groupName name of the group
+    */
+  final case class UnJoinGroupRequestFromConsole(groupName:String)
+
+  /**
     * Response from server about client request for chat creation
     * @param accept response from server
     */
@@ -215,6 +234,13 @@ object Client {
     * @param groupName group name
     */
   final case class ResponseForJoinGroupRequest(accept : Boolean, groupName: String)
+
+  /**
+    * Response from server about client request to join to an existing chat group
+    * @param accept response from server
+    * @param groupName group name
+    */
+  final case class ResponseForUnJoinGroupRequest(accept : Boolean, groupName: String)
 
   /**
     * Get response from server about the reference of an oneToOne or group chat

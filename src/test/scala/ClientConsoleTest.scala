@@ -126,6 +126,38 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       StopServerActorTest.expectTerminated(serverC)
     }
 
+    "create a chat group, if receives request from console" in {
+      val clientA = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val serverB = system.actorOf(Props(new RegisterServer()), name = "server")
+      val consoleForClient = TestProbe("actorFromConsole")
+      val testActor = TestProbe("testActor")
+      val groupName = "groupA"
+      val nameOne = "userA"
+      val nameTwo = "userB"
+
+      consoleForClient.send(clientA,Client.SetActorLogin(consoleForClient.ref))
+      consoleForClient.send(clientA, Client.LogInFromConsole(nameOne)) //JoinRequest("userA") sent to server
+      consoleForClient.expectMsg(ResponseFromLogin(true))
+      testActor.send(serverB, RegisterServer.JoinRequest(nameTwo))
+      testActor.expectMsg(Client.AcceptRegistrationFromRegister(true))
+      testActor.expectMsgClass(classOf[UserAndGroupActive])
+      consoleForClient.send(clientA, Client.CreateGroupRequestFromConsole(groupName))
+      consoleForClient.expectNoMessage()
+      testActor.send(serverB, RegisterServer.GetServerRef(groupName))
+//      val testGroupChatServer = testActor.expectMsgPF()({
+//        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
+//      })
+//      testActor.send(testChatServer, OneToOneChatServer.Message(messageText))
+//      testActor.expectMsg(Client.StringMessageFromServer(messageText, 1, nameTwo, nameOne))
+
+      val StopServerActorTest = TestProbe()
+      system.stop(clientA)
+      StopServerActorTest.watch(serverB)
+      system.stop(serverB)
+      StopServerActorTest.expectTerminated(serverB)
+
+    }
+
     "send an attachment to chatServer, if receives an attachment from client console" in {
       val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
       val testActor = TestProbe("testActor")

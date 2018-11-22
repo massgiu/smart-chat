@@ -233,6 +233,12 @@ object ActorViewController {
   final case class ResponseForChatCreation(accept : Boolean)
 
   /**
+    * Response about request to create a chat group
+    * @param accept
+    */
+  final case class ResponseForChatGroupCreation(accept : Boolean)
+
+  /**
     * Receives all messages received
     * @param storyMessage map which stores for every recipient (key) all messages received
     */

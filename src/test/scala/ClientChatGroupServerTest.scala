@@ -32,7 +32,7 @@ class ClientChatGroupServerTest extends TestKit(ActorSystem("MySpec")) with Impl
       clientThree.send(server, RegisterServer.JoinRequest(clientThreeName))
       clientThree.expectMsg(AcceptRegistrationFromRegister(true))
 
-      val expectedMessage = UserAndGroupActive(List(clientOneName, clientTwoName, clientThreeName), List.empty)
+      var expectedMessage = UserAndGroupActive(List(clientOneName, clientTwoName, clientThreeName), List.empty)
       clientOne.expectMsgAllConformingOf(Seq.fill(2)(classOf[UserAndGroupActive]):_*)
       clientOne.expectMsg(expectedMessage)
       clientTwo.expectMsgAllConformingOf(Seq.fill(1)(classOf[UserAndGroupActive]):_*)
@@ -41,14 +41,23 @@ class ClientChatGroupServerTest extends TestKit(ActorSystem("MySpec")) with Impl
 
       //clientOne creates a new group
       val groupNameOne = "groupOne"
+      val groupNameTwo = "groupTwo"
       clientOne.send(server,RegisterServer.NewGroupChatRequest(groupNameOne))
       clientOne.expectMsg(Client.ResponseForChatCreation(true))
-      clientTwo.send(server,RegisterServer.JoinGroupChatRequest(groupNameOne))
-      clientTwo.expectMsg(Client.ResponseForJoinGroupRequest(true,groupNameOne))
-      clientTwo.send(server,RegisterServer.JoinGroupChatRequest(groupNameOne))
-      clientTwo.expectMsg(Client.ResponseForJoinGroupRequest(false,groupNameOne))
-      clientThree.send(server,RegisterServer.JoinGroupChatRequest(groupNameOne))
-      clientThree.expectMsg(Client.ResponseForJoinGroupRequest(true,groupNameOne))
+      expectedMessage = UserAndGroupActive(List(clientOneName, clientTwoName, clientThreeName), List(groupNameOne))
+      clientOne.expectMsg(expectedMessage)
+      clientTwo.expectMsg(expectedMessage)
+      clientThree.expectMsg(expectedMessage)
+      clientOne.send(server,RegisterServer.NewGroupChatRequest(groupNameOne))
+      clientOne.expectMsg(Client.ResponseForChatCreation(false))
+      clientTwo.send(server,RegisterServer.NewGroupChatRequest(groupNameOne))
+      clientTwo.expectMsg(Client.ResponseForChatCreation(false))
+      clientTwo.send(server,RegisterServer.NewGroupChatRequest(groupNameTwo))
+      clientTwo.expectMsg(Client.ResponseForChatCreation(true))
+      expectedMessage = UserAndGroupActive(List(clientOneName, clientTwoName, clientThreeName), List(groupNameOne,groupNameTwo))
+      clientOne.expectMsg(expectedMessage)
+      clientTwo.expectMsg(expectedMessage)
+      clientThree.expectMsg(expectedMessage)
     }
   }
 

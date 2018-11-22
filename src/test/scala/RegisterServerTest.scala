@@ -71,6 +71,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       expectMsgClass(classOf[UserAndGroupActive])
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
       expectMsg(ResponseForChatCreation(true))
+      expectMsg(UserAndGroupActive(List("name"),List("groupName")))
       server.tell(RegisterServer.NewGroupChatRequest("groupName"), this.testActor)
       expectMsg(ResponseForChatCreation(false))
     }
@@ -111,8 +112,8 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       clientOne.expectMsg(AcceptRegistrationFromRegister(true))
       clientOne.expectMsgClass(classOf[UserAndGroupActive])
       //ClientOne request to join to an inexistent chat group
-      clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
-      clientOne.expectMsg(ResponseForChatCreation(false))
+//      clientOne.send(server, RegisterServer.JoinGroupChatRequest("inexistentChatGroup"))
+//      clientOne.expectMsg(ResponseForChatCreation(false))
     }
     "delete a chat server when one of its members leaves and unregister him" in {
       val server = system.actorOf(Props[RegisterServer], name = "welcomeServer12")
