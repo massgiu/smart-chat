@@ -2,11 +2,10 @@ import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
-import ActorViewController.{ResponseForChatCreation, ResponseForChatGroupCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
+import ActorViewController._
 import Client.StringMessageFromServer
 import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.util.Helpers.Requiring
 import javafx.collections.{FXCollections, ObservableList}
 import javafx.event.ActionEvent
 import javafx.fxml.Initializable
@@ -14,6 +13,7 @@ import javafx.geometry.Pos
 import javafx.scene.control.Alert.AlertType
 import javafx.scene.control._
 import javafx.scene.image.{Image, ImageView}
+import javafx.scene.input.{MouseButton, MouseEvent}
 import javafx.scene.layout.{Background, BackgroundFill, HBox}
 import javafx.scene.paint.Color
 import javafx.scene.text.Text
@@ -45,10 +45,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   @FXML
   var newChatGroupButton : Button = _
 
-  var chatMessage : ObservableList[HBox] = FXCollections.observableArrayList()
-  var storyMessageChat : Map[String,List[StringMessageFromServer]] = Map.empty
-  var userList : List[String] = List()
-  var groupList : List[String] = List()
+  var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
+  var storyMessageChat: Map[String,List[StringMessageFromServer]] = Map.empty
+  var chatGroupFollowed: List[String] = List()
+  var userList: List[String] = List()
+  var groupList: List[String] = List()
   var actualUserSelected: String =  new String()
   var indexActualUserSelected : Int = _
   var listNotification : List[(String,Boolean)] = List()
@@ -73,15 +74,21 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   @FXML
   def groupSelected(): Unit = {
-    groupListView.getSelectionModel.getSelectedItems.forEach(user => {
-      val dialog = new Alert(AlertType.CONFIRMATION)
-      dialog.setTitle("Confirmation Dialog")
-      dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-      import javafx.scene.control.ButtonType
-      val result = dialog.showAndWait
-      if (result.get() == ButtonType.OK)
-        clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-    })
+    groupListView.setOnMouseClicked((event: MouseEvent) => {
+      if (event.getButton.equals(MouseButton.SECONDARY)
+        && !chatGroupFollowed.contains(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)) {
+        println("dx click on "
+        + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+      } else groupListView.getSelectionModel.getSelectedItems.forEach(user => {
+        val dialog = new Alert(AlertType.CONFIRMATION)
+        dialog.setTitle("Confirmation Dialog")
+        dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+        import javafx.scene.control.ButtonType
+        val result = dialog.showAndWait
+        if (result.get() == ButtonType.OK)
+          clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+      }
+    )})
   }
 
   @FXML
@@ -198,6 +205,10 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
+  def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) groupName::chatGroupFollowed
+
+  def removeChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = chatGroupFollowed.filter(_ != groupName)
+
 }
 
 class ActorViewController(clientRef : ActorRef, chatController : ChatController) extends Actor {
@@ -218,6 +229,8 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
         chatController.updateMessageStory(storyMessage)
         chatController.updateMessageView(recipient)
       }
+    case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) => chatController.addChatGroup(response, groupName)
+    case ResponseForUnJoinGroupToConsole(response: Boolean, groupName: String) => chatController.removeChatGroup(response, groupName)
   }
 }
 
@@ -225,26 +238,39 @@ object ActorViewController {
 
   /**
     * Get all users and chat group active
-    * @param userList list of username
+    * @param userList  list of username
     * @param groupList list of chat group
     */
-  final case class UpdateUserAndGroupActive(userList:List[String], groupList:List[String])
+  final case class UpdateUserAndGroupActive(userList: List[String], groupList: List[String])
 
   /**
     * Response about request to create a one to one chat
     * @param accept
     */
-  final case class ResponseForChatCreation(accept : Boolean)
+  final case class ResponseForChatCreation(accept: Boolean)
 
   /**
     * Response about request to create a chat group
     * @param accept
     */
-  final case class ResponseForChatGroupCreation(accept : Boolean)
+  final case class ResponseForChatGroupCreation(accept: Boolean)
 
   /**
     * Receives all messages received
     * @param storyMessage map which stores for every recipient (key) all messages received
     */
-  final case class UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String)
+  final case class UpdateStoryMessage(storyMessage: Map[String, List[StringMessageFromServer]], recipient: String)
+
+  /**
+    * Response about request to join to a chat group
+    * @param response
+    */
+  final case class ResponseForJoinGroupToConsole(response: Boolean, groupName: String)
+
+  /**
+    * Response about request to unjoin from a chat group
+    * @param response
+    */
+  final case class ResponseForUnJoinGroupToConsole(response: Boolean, groupName: String)
+
 }

@@ -90,12 +90,12 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     case ResponseForJoinGroupRequest(response : Boolean, groupName : String) =>
       if (response) {
         println("Joining to "+ groupName + " accepted!")
-//        actorView.foreach(actor => actor ! ActorViewController.???(response))
+        actorView.foreach(actor => actor ! ActorViewController.ResponseForJoinGroupToConsole(response,groupName))
       } else println("Joined to "+ groupName + " refused!")
     case ResponseForUnJoinGroupRequest(response : Boolean, groupName : String) =>
       if (response) {
         println("Unjoinig from "+ groupName + " accepted!")
-//        actorView.foreach(actor => actor ! ActorViewController.???(response))
+        actorView.foreach(actor => actor ! ActorViewController.ResponseForUnJoinGroupToConsole(response,groupName))
       } else println("UnJoined from "+ groupName + " refused!")
     case LogInFromConsole(username) =>
       userName = username
