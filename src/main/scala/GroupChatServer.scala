@@ -38,23 +38,3 @@ object GroupChatServer {
   case class JoinGroupChatRequest(name: String)
   case class UnJoinGroupChatRequest(name: String)
 }
-
-//case JoinGroupChatRequest(group) =>
-//val onFail = () => sender ! Client.ResponseForChatCreation(accept = false)
-//ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
-//  //inviare richiesta al chatGroup server
-//  val clientReq = sender
-//  model.findGroup(group).ifSuccess(actRef => actRef.head ! GroupChatServer.AddMember(senderName,sender))
-//  context.become({
-//    case ResponseFromJoinRequest(response) =>
-//      unstashAll()
-//      clientReq ! Client.ResponseForJoinGroupRequest(response,group)
-//      context.unbecome()
-//    case _ => stash()
-//  }, discardOld = false) // stack on top instead of replacing
-//}).orElse(_ => sender ! Client.ResponseForJoinGroupRequest(accept = false,group)), onFail)
-//case UnJoinGroupChatRequest(group) =>
-//val onFail = () => sender ! Client.ResponseForChatCreation(accept = false)
-//ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
-//  /////
-//}).orElse(_ => sender ! Client.ResponseForJoinGroupRequest(accept = false,group)), onFail)

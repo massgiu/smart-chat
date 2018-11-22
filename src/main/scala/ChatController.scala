@@ -2,7 +2,7 @@ import java.net.URL
 import java.util
 import java.util.ResourceBundle
 
-import ActorViewController.{ResponseForChatCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
+import ActorViewController.{ResponseForChatCreation, ResponseForChatGroupCreation, UpdateStoryMessage, UpdateUserAndGroupActive}
 import Client.StringMessageFromServer
 import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -76,10 +76,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     groupListView.getSelectionModel.getSelectedItems.forEach(user => {
       val dialog = new Alert(AlertType.CONFIRMATION)
       dialog.setTitle("Confirmation Dialog")
-      dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem)
+      dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
       import javafx.scene.control.ButtonType
       val result = dialog.showAndWait
-      if (result.get() == ButtonType.OK) println("Request to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem)
+      if (result.get() == ButtonType.OK)
+        clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
     })
   }
 
@@ -90,7 +91,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     dialog.setHeaderText("Chat group name:")
     dialog.setContentText("Name:")
     val result = dialog.showAndWait
-    result.ifPresent((chatGroupName: String) => println("Request to create chatGroup: " + chatGroupName))
+    result.ifPresent((chatGroupName: String) => clientRef ! Client.CreateGroupRequestFromConsole(chatGroupName))
   }
 
   def sendButtonAction(event:ActionEvent): Unit = {
@@ -195,6 +196,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
 
+  def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
+
 }
 
 class ActorViewController(clientRef : ActorRef, chatController : ChatController) extends Actor {
@@ -209,6 +212,7 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
         chatController.updateUserGroupList(userList, groupList, Option.empty, Option.empty)
       }
     case ResponseForChatCreation(_: Boolean) => Unit
+    case ResponseForChatGroupCreation(response : Boolean) => chatController.addOwnerToGroupAfterCreation(response: Boolean)
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
       interactionWithUI {
         chatController.updateMessageStory(storyMessage)
