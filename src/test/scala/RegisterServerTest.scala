@@ -102,6 +102,7 @@ class RegisterServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
       //ClientOne create a chatGroup with same group name
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(ResponseForChatCreation(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(ResponseForChatCreation(false))
     }
