@@ -1,14 +1,15 @@
-import Client.{AcceptRegistrationFromRegister, ResponseForChatCreation, ResponseForServerRefRequest, UserAndGroupActive}
+import Client._
 import OneToOneChatServer.DoesContainsMembers
 import RegisterServer._
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorPath, ActorRef, Props, Stash}
 import akka.pattern.ask
 import akka.util.Timeout
 import Utils.ifNewNameIsValidOrElse
+
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
-class RegisterServer extends Actor {
+class RegisterServer extends Actor with Stash {
 
   //futures' callbacks will be executed on the messageDispatcher, which is an executionContext
   import context.dispatcher
@@ -28,14 +29,9 @@ class RegisterServer extends Actor {
       .ifSuccess(_ => sender ! ResponseForChatCreation(accept = true))
       .orElse(_ => sender ! ResponseForChatCreation(accept = false))
     case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
-      .ifSuccess(_ => sender ! ResponseForChatCreation(true))
+      .ifSuccess(_ => {sender ! ResponseForChatCreation(true); sendNewServersToAllClients()})
       .orElse(_ => sender ! ResponseForChatCreation(false))
-    case JoinGroupChatRequest(group) =>
-      val onFail = () => sender ! ResponseForChatCreation(accept = false)
-      ifSenderRegisteredOrElse(() => model.findGroup(group).ifSuccess(_ => {
-        //insert some other code here
-        sender ! ResponseForChatCreation(accept = true)
-      }).orElse(_ => sender ! ResponseForChatCreation(accept = false)), onFail)
+      //Add/ remove li tolgo dal chat server
     case AllUsersAndGroupsRequest => model.getAllUsersAndGroupsNames
       .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
       .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
@@ -71,7 +67,7 @@ class RegisterServer extends Actor {
     var success = false
     ifNewNameIsValidOrElse(newGroupName, () =>
       ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
-        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Set(sender)))
+        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map(),newGroupName))
         model.addNewGroupChatServer(newGroupName, newGroupChatServer)
         success = true
       }), () => Unit), () => Unit)
@@ -89,9 +85,8 @@ class RegisterServer extends Actor {
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
   }
 
-  def sendNewServersToAllClients(): Unit = {
+  def sendNewServersToAllClients(): Unit =
     model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
-  }
 
   def unregisterUser(user: ActorRef): Unit = {
     var userName = model.invalidName
@@ -119,7 +114,7 @@ object RegisterServer {
   case class AllUsersAndGroupsRequest()
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest(newGroupName:String)
-  case class JoinGroupChatRequest(group:String)
+
   case class GetServerRef(friendNname:String)
   case class ContainsMembers(trueOrFalse: Boolean)
 }

@@ -1,26 +1,40 @@
-import Client.StringMessageFromServer
-import GroupChatServer.{AddMember, GroupMessage, RemoveMember}
+import Client.{StringMessageFromServer}
+import GroupChatServer._
 import akka.actor.{Actor, ActorRef}
+import Utils._
 
-class GroupChatServer(m: Set[ActorRef] = Set.empty) extends Actor {
+class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) extends Actor {
 
-  var members: Set[ActorRef] = m
+  var members: Map[String, ActorRef] = m
   private var messageNumber: Long = 0
 
   override def receive: Receive =  {
-    case AddMember(member) => members += member
-    case RemoveMember(member) => members -= member
-    case GroupMessage(text) =>
+    case AddMember(name: String, actRef : ActorRef) =>
+      findInMap(name,members)
+        .ifSuccess(_ => sender ! Client.ResponseForJoinGroupRequest(false,groupName))
+        .orElse(value => {
+          members += (name-> actRef)
+          sender ! Client.ResponseForJoinGroupRequest(true,groupName)
+        })
+    case RemoveMember(name) =>
+      findInMap(name,members)
+        .ifSuccess(user => {
+          members.filterKeys(_ != user)
+          Client.ResponseForUnJoinGroupRequest(true,groupName)
+        })
+        .orElse(_ => sender ! Client.ResponseForUnJoinGroupRequest(false,groupName))
+    case GroupMessage(text, senderName) =>
       messageNumber += 1
-      members.foreach(m => m ! StringMessageFromServer(text, messageNumber, "", "")) //"" is wrong
+      members.keys.foreach(name => members(name) ! StringMessageFromServer(text, messageNumber, senderName,name))
     case _ => println("unknown message")
   }
-
 }
 
 object GroupChatServer {
-  case class AddMember(member: ActorRef)
-  case class RemoveMember(member: ActorRef)
-  case class GroupMessage(text: String)
+  case class AddMember(name: String, actRef: ActorRef)
+  case class RemoveMember(name: String)
+  case class GroupMessage(text: String, senderName : String)
   case class GroupAttachment(payload:AttachmentContent)
+  case class JoinGroupChatRequest(name: String)
+  case class UnJoinGroupChatRequest(name: String)
 }
