@@ -161,9 +161,10 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     convertoToObservable.clear()
     groups.foreach(elem => {
       var hbox = new HBox()
-      val texName = new Text(elem)
-      texName.setStyle("-fx-font: 16 arial;")
-      hbox.getChildren.addAll(texName) //textName and image
+      val textName = new Text(elem)
+      textName.setStyle("-fx-font: 16 arial; -fx-fill: black;")
+      if (chatGroupFollowed.contains(elem)) textName.setStyle("-fx-fill: green")
+      hbox.getChildren.addAll(textName) //textName and image
       hbox.setAlignment(Pos.CENTER_LEFT)
       convertoToObservable.add(hbox)
     })
