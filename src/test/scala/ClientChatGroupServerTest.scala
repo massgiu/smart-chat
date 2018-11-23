@@ -39,7 +39,7 @@ class ClientChatGroupServerTest extends TestKit(ActorSystem("MySpec")) with Impl
       clientTwo.expectMsg(expectedMessage)
       clientThree.expectMsg(expectedMessage)
 
-      //clientOne creates a new group
+      //clientOne and clientTwo create new groups
       val groupNameOne = "groupOne"
       val groupNameTwo = "groupTwo"
       clientOne.send(server,RegisterServer.NewGroupChatRequest(groupNameOne))
@@ -60,6 +60,4 @@ class ClientChatGroupServerTest extends TestKit(ActorSystem("MySpec")) with Impl
       clientThree.expectMsg(expectedMessage)
     }
   }
-
-
 }
