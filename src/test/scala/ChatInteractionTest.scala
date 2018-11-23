@@ -92,15 +92,26 @@ class ChatInteractionTest extends TestKit(ActorSystem("MySpec")) with ImplicitSe
       //Request from ClientOne to create a chatGroup
       clientOne.send(server, RegisterServer.NewGroupChatRequest("chatGroupName"))
       clientOne.expectMsg(ResponseForChatCreation(true))
-//
-//      //Request from ClientOne to join to chatGroup named "chatGroupName"
-//      clientOne.send(server, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
-//      clientOne.expectMsg(ResponseForChatCreation(true))
+      clientOne.expectMsgClass(classOf[UserAndGroupActive])
+
+      //Request from ClientOne to join to chatGroup named "chatGroupName"
+      clientOne.send(server, RegisterServer.GetGroupServerRef("chatGroupName"))
+      val groupChatServerForClientOne = clientOne.expectMsgPF()({
+        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
+      })
+      clientOne.send(groupChatServerForClientOne, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
+//      clientOne.expectMsg(ResponseForJoinGroupRequest(true,"chatGroupName"))
 //
 //      //Request from ClientTwo to join to chatGroup named "chatGroupName"
+//      clientTwo.send(server, RegisterServer.GetGroupServerRef("chatGroupName"))
+//      val groupChatServerForClientTwo = clientOne.expectMsgPF()({
+//        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
+//      })
+//      clientTwo.send(groupChatServerForClientTwo, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
+//      clientTwo.expectMsg(ResponseForJoinGroupRequest(true,"chatGroupName"))
+
 //      clientTwo.send(server, GroupChatServer.JoinGroupChatRequest("chatGroupName"))
 //      clientTwo.expectMsg(ResponseForChatCreation(true))
     }
-
   }
 }
