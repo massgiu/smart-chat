@@ -1,4 +1,5 @@
 import Client._
+import GroupChatServer.{DoesContainsMembersInList, RemoveMember}
 import OneToOneChatServer.DoesContainsMembers
 import RegisterServer._
 import akka.actor.{Actor, ActorPath, ActorRef, Props, Stash}
@@ -6,6 +7,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import Utils.ifNewNameIsValidOrElse
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
@@ -89,7 +91,18 @@ class RegisterServer extends Actor with Stash {
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
   }
 
-
+  def findGroupChatServersContainingMembers(members: String*): OperationDone[List[ActorRef]] = {
+    val allGroupChatServers = new ListBuffer[ActorRef]
+    model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._2.foreach(groupName => model.findGroup(groupName).ifSuccess(groupChatServer => allGroupChatServers += groupChatServer.head)))
+    val groupChatServersContainingMembers = allGroupChatServers.toList match {
+      case a if a.nonEmpty => Await.result(
+        Future.sequence(a.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembersInList(members.toList)).mapTo[ContainsMembers]))
+          .map(chatServerAndFuture => chatServerAndFuture._2.map(future => (chatServerAndFuture._1, future.trueOrFalse))))
+          .map(responseList => responseList.filter(chatServerAndResponse => chatServerAndResponse._2).map(refAndResult => refAndResult._1)), 10 seconds)
+      case _ => List.empty
+    }
+    OperationDone(groupChatServersContainingMembers.nonEmpty, List(groupChatServersContainingMembers))
+  }
 
   def sendNewServersToAllClients(): Unit =
     model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
@@ -103,6 +116,9 @@ class RegisterServer extends Actor with Stash {
         context.stop(chatServer.head)
       })
     }))
+    val allGroupChatServers = new ListBuffer[ActorRef]
+    model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._2.foreach(groupName => model.findGroup(groupName).ifSuccess(groupChatServer => allGroupChatServers += groupChatServer.head)))
+    allGroupChatServers.toList.foreach(group => group ! RemoveMember(userName))
     model.removeUser(userName)
   }
 
