@@ -40,6 +40,10 @@ class RegisterServer extends Actor with Stash {
       findChatServerForMembers(clientWhoAsked._2, friendName)
         .ifSuccess(server => clientWhoAsked._1 ! ResponseForServerRefRequest(Option(server.head)))
         .orElse(_ => clientWhoAsked._1 ! ResponseForServerRefRequest(Option.empty))
+    case GetGroupServerRef(groupName) =>
+      model.findGroup(groupName)
+        .ifSuccess(group => sender ! ResponseForServerRefRequest(Option(group.head)))
+        .orElse(_ => sender ! ResponseForServerRefRequest(Option.empty))
   }
 
   def senderName: String = {
@@ -67,7 +71,7 @@ class RegisterServer extends Actor with Stash {
     var success = false
     ifNewNameIsValidOrElse(newGroupName, () =>
       ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
-        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map(),newGroupName))
+        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map.empty, newGroupName))
         model.addNewGroupChatServer(newGroupName, newGroupChatServer)
         success = true
       }), () => Unit), () => Unit)
@@ -84,6 +88,8 @@ class RegisterServer extends Actor with Stash {
     }
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
   }
+
+
 
   def sendNewServersToAllClients(): Unit =
     model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._1.foreach(user => model.findUser(user).ifSuccess(user => self.tell(AllUsersAndGroupsRequest, user.head))))
@@ -114,7 +120,7 @@ object RegisterServer {
   case class AllUsersAndGroupsRequest()
   case class NewOneToOneChatRequest(friendName:String)
   case class NewGroupChatRequest(newGroupName:String)
-
   case class GetServerRef(friendNname:String)
+  case class GetGroupServerRef(groupName:String)
   case class ContainsMembers(trueOrFalse: Boolean)
 }

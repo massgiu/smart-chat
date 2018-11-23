@@ -1,5 +1,6 @@
-import Client.{StringMessageFromServer}
+import Client.StringMessageFromServer
 import GroupChatServer._
+import RegisterServer.ContainsMembers
 import akka.actor.{Actor, ActorRef}
 import Utils._
 
@@ -11,21 +12,23 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
   override def receive: Receive =  {
     case AddMember(name: String, actRef : ActorRef) =>
       findInMap(name,members)
-        .ifSuccess(_ => sender ! Client.ResponseForJoinGroupRequest(false,groupName))
-        .orElse(value => {
+        .ifSuccess(_ => sender ! Client.ResponseForJoinGroupRequest(accept = false,groupName))
+        .orElse(_ => {
           members += (name-> actRef)
-          sender ! Client.ResponseForJoinGroupRequest(true,groupName)
+          sender ! Client.ResponseForJoinGroupRequest(accept = true,groupName)
         })
     case RemoveMember(name) =>
       findInMap(name,members)
-        .ifSuccess(user => {
-          members.filterKeys(_ != user)
-          Client.ResponseForUnJoinGroupRequest(true,groupName)
+        .ifSuccess(_ => {
+          members -= name
+          Client.ResponseForUnJoinGroupRequest(accept = true,groupName)
         })
-        .orElse(_ => sender ! Client.ResponseForUnJoinGroupRequest(false,groupName))
+        .orElse(_ => sender ! Client.ResponseForUnJoinGroupRequest(accept = false,groupName))
     case GroupMessage(text, senderName) =>
       messageNumber += 1
-      members.keys.foreach(name => members(name) ! StringMessageFromServer(text, messageNumber, senderName,name))
+      members.foreach(member => member._2 ! StringMessageFromServer(text, messageNumber, senderName, member._1))
+    case DoesContainsMembersInList(users) =>
+      sender ! ContainsMembers(users.toSet.subsetOf(members.keySet))
     case _ => println("unknown message")
   }
 }
@@ -37,4 +40,5 @@ object GroupChatServer {
   case class GroupAttachment(payload:AttachmentContent)
   case class JoinGroupChatRequest(name: String)
   case class UnJoinGroupChatRequest(name: String)
+  case class DoesContainsMembersInList(users: List[String])
 }
