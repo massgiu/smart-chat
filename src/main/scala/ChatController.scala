@@ -73,22 +73,19 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   @FXML
-  def groupSelected(): Unit = {
-    groupListView.setOnMouseClicked((event: MouseEvent) => {
-      if (event.getButton.equals(MouseButton.SECONDARY)
-        && !chatGroupFollowed.contains(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)) {
-        println("dx click on "
-        + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-      } else groupListView.getSelectionModel.getSelectedItems.forEach(user => {
-        val dialog = new Alert(AlertType.CONFIRMATION)
-        dialog.setTitle("Confirmation Dialog")
-        dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-        import javafx.scene.control.ButtonType
-        val result = dialog.showAndWait
-        if (result.get() == ButtonType.OK)
-          clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-      }
-    )})
+  def groupSelected(mouseEvent: MouseEvent): Unit = {
+    if (mouseEvent.getButton.equals(MouseButton.SECONDARY)
+      && !chatGroupFollowed.contains(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)) {
+      println("dx click on " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+    } else groupListView.getSelectionModel.getSelectedItems.forEach(user => {
+      val dialog = new Alert(AlertType.CONFIRMATION)
+      dialog.setTitle("Confirmation Dialog")
+      dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+      import javafx.scene.control.ButtonType
+      val result = dialog.showAndWait
+      if (result.get() == ButtonType.OK)
+        clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
+    })
   }
 
   @FXML
@@ -121,6 +118,14 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   //Draw useListView and groupListView
   def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[String], notificationToRemove: Option[String]): Unit = {
+    userList.filterNot(users.contains(_)).foreach(notExistingUser => {
+      storyMessageChat -= notExistingUser
+      listNotification = listNotification.filterNot(_._1 == notExistingUser)
+    })
+    if (!users.contains(actualUserSelected)) {
+      actualUserSelected = new String()
+      userListView.getItems.clear()
+    }
     userList = users
     groupList = groups
     users.foreach(elem => {
@@ -130,7 +135,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         listNotification = listNotification.filter(_._1 != elem))
     })
     var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
-    userListView.getItems.clear()
+    chatPanel.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
       var hbox = new HBox()
       val texName = new Text(name)
@@ -169,7 +174,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def updateMessageView(recipient : String) : Unit = {
     //if message comes from a different chat among the one selected, there are more than 1 chat and sender is not recipient
-    if (userListView.getItems.size() > 1 && recipient != actualUserSelected ) {
+    if (recipient != actualUserSelected ) {
       //redraw userList with green notification for recipient
       updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
     } else drawMessageView(recipient)
@@ -223,14 +228,23 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
         chatController.updateUserGroupList(userList, groupList, Option.empty, Option.empty)
       }
     case ResponseForChatCreation(_: Boolean) => Unit
-    case ResponseForChatGroupCreation(response : Boolean) => chatController.addOwnerToGroupAfterCreation(response: Boolean)
+    case ResponseForChatGroupCreation(response : Boolean) =>
+      interactionWithUI {
+        chatController.addOwnerToGroupAfterCreation(response: Boolean)
+      }
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
       interactionWithUI {
         chatController.updateMessageStory(storyMessage)
         chatController.updateMessageView(recipient)
       }
-    case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) => chatController.addChatGroup(response, groupName)
-    case ResponseForUnJoinGroupToConsole(response: Boolean, groupName: String) => chatController.removeChatGroup(response, groupName)
+    case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) =>
+      interactionWithUI {
+        chatController.addChatGroup(response, groupName)
+      }
+    case ResponseForUnJoinGroupToConsole(response: Boolean, groupName: String) =>
+      interactionWithUI {
+        chatController.removeChatGroup(response, groupName)
+      }
   }
 }
 

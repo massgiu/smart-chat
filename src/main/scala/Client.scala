@@ -85,7 +85,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     case ResponseForChatCreation(response) =>
       if (response) {
         println("Chat creation done!")
-        actorView.foreach(actor => actor ! ActorViewController.ResponseForChatGroupCreation(response))
+        actorView.foreach(actor => actor ! ActorViewController.ResponseForChatCreation(response))
       } else println("Chat creation refused!")
     case ResponseForJoinGroupRequest(response : Boolean, groupName : String) =>
       if (response) {
