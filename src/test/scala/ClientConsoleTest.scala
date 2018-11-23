@@ -143,12 +143,13 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       testActor.expectMsgClass(classOf[UserAndGroupActive])
       consoleForClient.send(clientA, Client.CreateGroupRequestFromConsole(groupName))
       consoleForClient.expectNoMessage()
-      testActor.send(serverB, RegisterServer.GetServerRef(groupName))
-//      val testGroupChatServer = testActor.expectMsgPF()({
-//        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
-//      })
-//      testActor.send(testChatServer, OneToOneChatServer.Message(messageText))
-//      testActor.expectMsg(Client.StringMessageFromServer(messageText, 1, nameTwo, nameOne))
+      testActor.expectMsgClass(classOf[UserAndGroupActive])
+      testActor.send(serverB, RegisterServer.GetGroupServerRef(groupName))
+      val testGroupChatServer = testActor.expectMsgPF()({
+        case ResponseForServerRefRequest(serverOpt) if serverOpt.isDefined => serverOpt.get
+      })
+      testActor.send(testGroupChatServer, GroupChatServer.AddMember("testActor",testActor.ref))
+      testActor.expectMsg(ResponseForJoinGroupRequest(true,groupName))
 
       val StopServerActorTest = TestProbe()
       system.stop(clientA)
