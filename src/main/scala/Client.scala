@@ -2,7 +2,7 @@ import java.io.File
 
 import ActorLoginController.ResponseFromLogin
 import Client._
-import OneToOneChatServer.Message
+import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
 import com.typesafe.config.ConfigFactory
@@ -17,6 +17,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
   val registerFilePath: String = "src/main/scala/res/server.conf"
   var userName: String = _
   var storyMessageChat: Map[String, List[Option[StringMessageFromServer]]] = Map.empty //key is recipient
+  var storyAttachmentChat: Map[String, List[AttachmentMessageFromServer]] = Map.empty
 
   var register: ActorSelection = _
   var actorView: Option[ActorRef] = Option.empty
@@ -69,10 +70,20 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       findInMap(recipient, userRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
         .orElse(_ => searchRefFromRegister(recipient, ()=> self ! StringMessageFromConsole(message, recipient)))
-    case AttachmentMessageFromServer(attachment, senderName, messageNumber) =>
-    //Display data on view/console
-    case AttachmentMessageFromConsole(attachment, recipientName) =>
-    //Same as TextMessageFromConsole
+    case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) =>
+      val recipient = if (userName != senderName) senderName else recipientName
+      findInMap(recipient, storyAttachmentChat)
+        .ifSuccess(existingRecip  => {
+          var tmpHistoryAttachment : List[AttachmentMessageFromServer] = existingRecip.head
+          tmpHistoryAttachment = AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName) :: tmpHistoryAttachment
+          storyAttachmentChat += (recipient -> tmpHistoryAttachment)
+        })
+        .orElse(_ => storyAttachmentChat += (recipient -> List(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName))))
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryAttachment(storyAttachmentChat, recipient))
+    case AttachmentMessageFromConsole(attachment, senderName, recipientName) =>
+      findInMap(recipientName, userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! Attachment(attachment, senderName, recipientName))
+        .orElse(_ => searchRefFromRegister(recipientName, ()=> self ! AttachmentMessageFromConsole(attachment, senderName, recipientName)))
     case CreateGroupRequestFromConsole(groupName: String) =>
       register.tell(NewGroupChatRequest(groupName), self)
     case JoinGroupRequestFromConsole(groupName: String) =>
@@ -189,13 +200,13 @@ object Client {
     * @param payload attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class AttachmentMessageFromServer(payload : AttachmentContent, messageNumber: Long, sender : String)
+  final case class AttachmentMessageFromServer(payload : Array[Byte], messageNumber: Long, sender : String, recipient: String)
 
   /**
     * Get an attachment sent from client console
     * @param payload attachment sent
     */
-  final case class AttachmentMessageFromConsole(payload : AttachmentContent, recipient : String)
+  final case class AttachmentMessageFromConsole(payload : Array[Byte], sender: String, recipient : String)
 
   /**
     * @param payload the data that has been sent

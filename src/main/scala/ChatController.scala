@@ -1,9 +1,11 @@
+import java.io.File
 import java.net.URL
+import java.nio.file.Paths
 import java.util
 import java.util.ResourceBundle
 
 import ActorViewController._
-import Client.StringMessageFromServer
+import Client.{AttachmentMessageFromServer, StringMessageFromServer}
 import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import javafx.collections.{FXCollections, ObservableList}
@@ -47,12 +49,14 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
   var storyMessageChat: Map[String,List[StringMessageFromServer]] = Map.empty
+  var storyAttachmentChat: Map[String,List[AttachmentMessageFromServer]] = Map.empty
   var chatGroupFollowed: List[String] = List()
   var userList: List[String] = List()
   var groupList: List[String] = List()
   var actualUserSelected: String =  new String()
   var indexActualUserSelected : Int = _
   var listNotification : List[(String,Boolean)] = List()
+  var fileContent : Option[Array[Byte]] = Option.empty
 
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
@@ -100,20 +104,30 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def sendButtonAction(event:ActionEvent): Unit = {
     var itemNameSelected: Option[String] = Option.empty
-    if (actualUserSelected!=null && actualUserSelected.length>0) itemNameSelected = Option(actualUserSelected)
+    if (actualUserSelected!=null && actualUserSelected.length>0 && messageBox.getText().length>0) itemNameSelected = Option(actualUserSelected)
     else if (groupListView.getSelectionModel.getSelectedItem!=null)
       itemNameSelected = Option(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
     itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item))
+    if (actualUserSelected!=null && actualUserSelected.length>0 && fileContent.isDefined) {
+      println("Sending attachment")
+      clientRef ! Client.AttachmentMessageFromConsole(fileContent.get, userName, actualUserSelected)
+      attachmentButton.setStyle("-fx-base: lightgrey;")
+      fileContent=Option.empty
+    }
     messageBox.clear()
   }
 
   def attachmentButtonAction(event : ActionEvent) : Unit = {
+    import java.nio.file.Files
     val fileChooser = new FileChooser
-    val selectFile = fileChooser.showOpenDialog(null)
-    if (selectFile != null) {
-      val filePath =  selectFile.getAbsolutePath
-      println(filePath)
-    } else println("File is not valid")
+//    fileContent = Option.empty
+    fileChooser.setTitle("Select an image to attach")
+    val selectFile: Option[File] = Option(fileChooser.showOpenDialog(null))
+    selectFile.foreach(selFile => {
+      val img = new Image(selFile.toURI().toString())
+      fileContent = Option(Files.readAllBytes(Paths.get(selFile.getAbsolutePath)))
+      attachmentButton.setStyle("-fx-base: green;")
+    })
   }
 
   //Draw useListView and groupListView
@@ -182,32 +196,70 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   def drawMessageView(recipient: String): Unit = {
+    import scala.math.max
     chatPanel.getItems.clear()
-    if (storyMessageChat.contains(recipient)) {
-      val allMessageForRecipient = storyMessageChat(recipient)
-      allMessageForRecipient.map(msg => if (msg.sender == userName) {
-        val bubble: BubbledLabel = new BubbledLabel
-        bubble.setText(msg.message)
-        bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
-        val horizontalBox = new HBox
-        horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
-        horizontalBox.setAlignment(Pos.TOP_RIGHT)
-        bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
-        horizontalBox.getChildren.addAll(bubble)
-        horizontalBox
-      } else {
-        val bubble: BubbledLabel = new BubbledLabel
-        bubble.setText(msg.sender + ": " + msg.message)
-        bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
-        val horizontalBox = new HBox
-        bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
-        horizontalBox.getChildren.addAll(bubble)
-        horizontalBox
-      }).foreach(hbox => chatPanel.getItems.add(hbox))
+    var numMsgItems = 0
+    var numAttachItems = 0
+    if (storyMessageChat.contains(recipient)) numMsgItems = storyMessageChat(recipient).size
+    if (storyAttachmentChat.contains(recipient)) numAttachItems = storyAttachmentChat(recipient).size
+    val numItems = max(numMsgItems, numAttachItems)
+    if (numItems > 0) {
+      def mergeList(counter: Int, mergedList: Map[String, List[ComboMessage]], storyMessageChat: Map[String, List[StringMessageFromServer]], storyAttachmentChat: Map[String, List[AttachmentMessageFromServer]]): Map[String, List[ComboMessage]] = counter match {
+        case a: Int if a <= numItems =>
+          //get message with sequence==conterr
+          var message = storyMessageChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
+          var attach = storyAttachmentChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
+          var tempList: List[ComboMessage] = {
+            if (mergedList.nonEmpty) ComboMessage(message, attach) :: mergedList(recipient)
+            else List(ComboMessage(message, attach))
+          }
+          mergeList(counter + 1, Map(recipient -> tempList), storyMessageChat, storyAttachmentChat)
+        case _ => mergedList
+      }
+      val allMessageForRecipient: Map[String, List[ComboMessage]] = mergeList(1, Map.empty, storyMessageChat, storyAttachmentChat)
+      if (allMessageForRecipient.contains(recipient)) {
+        val comboMessageForRecipient = allMessageForRecipient(recipient)
+        comboMessageForRecipient.map(comboMsg => {
+          if ((comboMsg.stringMessage.isDefined && (comboMsg.stringMessage.get.sender == userName)) ||
+            (comboMsg.attachemtMessage.isDefined && (comboMsg.attachemtMessage.get.sender == userName))) {
+            val stringMsg = comboMsg.stringMessage
+            val attachMsg = comboMsg.attachemtMessage
+            val bubble: BubbledLabel = new BubbledLabel
+            val horizontalBox = new HBox
+            if (stringMsg.isDefined) {
+              bubble.setText(stringMsg.get.message)
+            } else {
+              import java.io.ByteArrayInputStream
+              println("found image")
+              val img = new Image(new ByteArrayInputStream(attachMsg.get.payload))
+              bubble.setGraphic(new ImageView(img))
+            }
+            horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
+            horizontalBox.setAlignment(Pos.TOP_RIGHT)
+            bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
+            horizontalBox.getChildren.addAll(bubble)
+            bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
+
+            horizontalBox
+          } else {
+            val stringMsg = comboMsg.stringMessage
+            val attachMsg = comboMsg.attachemtMessage
+            val bubble: BubbledLabel = new BubbledLabel
+            if (stringMsg.isDefined) bubble.setText(stringMsg.get.message)
+            bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
+            val horizontalBox = new HBox
+            bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
+            horizontalBox.getChildren.addAll(bubble)
+            horizontalBox
+          }
+        }).foreach(hbox => chatPanel.getItems.add(hbox))
+      }
     }
   }
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
+
+  def updateAttachMentStory(storyAttachment: Map[String,List[AttachmentMessageFromServer]]) : Unit = storyAttachmentChat = storyAttachment
 
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
@@ -216,6 +268,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   def removeChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = chatGroupFollowed.filter(_ != groupName)
 
 }
+
+case class ComboMessage(stringMessage: Option[StringMessageFromServer],attachemtMessage: Option[AttachmentMessageFromServer])
 
 class ActorViewController(clientRef : ActorRef, chatController : ChatController) extends Actor {
 
@@ -236,6 +290,11 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
       interactionWithUI {
         chatController.updateMessageStory(storyMessage)
+        chatController.updateMessageView(recipient)
+      }
+    case UpdateStoryAttachment(storyAttachment: Map[String,List[AttachmentMessageFromServer]],recipient : String) =>
+      interactionWithUI{
+        chatController.updateAttachMentStory(storyAttachment)
         chatController.updateMessageView(recipient)
       }
     case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) =>
@@ -288,4 +347,5 @@ object ActorViewController {
     */
   final case class ResponseForUnJoinGroupToConsole(response: Boolean, groupName: String)
 
+  final case class UpdateStoryAttachment(storyAttachment: Map[String, List[AttachmentMessageFromServer]], recipient: String)
 }
