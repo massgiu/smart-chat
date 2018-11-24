@@ -107,7 +107,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       testActor.expectMsgClass(classOf[UserAndGroupActive])
       consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole(nameThree))
       consoleForClientA.expectNoMessage()
-      consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextOne,nameThree))
+      consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextOne,nameThree, isGroup = false))
       testActor.expectMsg(Client.StringMessageFromServer(messageTextOne,1,nameOne,nameThree)) //chatServer sends msg to sender
 
       consoleForClientB.send(clientB,Client.SetActorLogin(consoleForClientB.ref))
@@ -115,7 +115,7 @@ class ClientConsoleTest extends TestKit(ActorSystem.create("MySystem", ConfigFac
       consoleForClientB.expectMsg(ResponseFromLogin(true))
       consoleForClientA.send(clientA,Client.RequestForChatCreationFromConsole(nameTwo))
       consoleForClientA.expectNoMessage()
-      consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextTwo,nameTwo))
+      consoleForClientA.send(clientA,Client.StringMessageFromConsole(messageTextTwo,nameTwo, isGroup = false))
       consoleForClientA.expectNoMessage()
 
       val StopServerActorTest = TestProbe()

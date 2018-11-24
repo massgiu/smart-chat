@@ -4,7 +4,7 @@ import java.io.File
 import ActorLoginController.ResponseFromLogin
 import Client.StopRequest
 import Utils.interactionWithUI
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, ExtendedActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import javafx.application.Application
 import javafx.event.ActionEvent
@@ -17,14 +17,14 @@ class LaunchClientLogin extends Application {
 
   override def start(primaryStage: Stage): Unit = {
     val system = ActorSystem.create("MySystem", ConfigFactory.parseFile(new File("src/main/scala/res/client.conf")))
-    val clientRef = system.actorOf(Props(classOf[Client], system))
+    val clientRef = system.actorOf(Props(classOf[Client], system.asInstanceOf[ExtendedActorSystem]))
     primaryStage.setOnCloseRequest(_ => clientRef ! StopRequest)
     //login GUI
     val loaderLogin: FXMLLoader = new FXMLLoader(getClass.getResource("/res/view/clientLogin.fxml"))
     val loginController = new LoginController(clientRef, system)
     loaderLogin.setController(loginController)
     val sceneLogin = new Scene(loaderLogin.load())
-    primaryStage.setTitle("Login Client View")
+    primaryStage.setTitle("Smart Chat")
     primaryStage.setScene(sceneLogin)
     primaryStage.show()
   }

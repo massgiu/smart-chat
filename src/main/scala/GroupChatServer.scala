@@ -26,7 +26,7 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
         .orElse(_ => sender ! Client.ResponseForUnJoinGroupRequest(accept = false,groupName))
     case GroupMessage(text, senderName) =>
       messageNumber += 1
-      members.foreach(member => member._2 ! StringMessageFromGroupServer(text, messageNumber, senderName, member._1))
+      members.foreach(member => member._2 ! StringMessageFromGroupServer(text, messageNumber, senderName, groupName))
     case DoesContainsMembersInList(users) =>
       sender ! ContainsMembers(users.toSet.subsetOf(members.keySet))
     case _ => println("unknown message")

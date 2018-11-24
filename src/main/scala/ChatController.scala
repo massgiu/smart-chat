@@ -3,7 +3,7 @@ import java.util
 import java.util.ResourceBundle
 
 import ActorViewController._
-import Client.StringMessageFromServer
+import Client.{StringMessageFromGroupServer, StringMessageFromServer}
 import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import javafx.collections.{FXCollections, ObservableList}
@@ -47,9 +47,11 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
   var storyMessageChat: Map[String,List[StringMessageFromServer]] = Map.empty
+  var groupStoryMessageChat: Map[String, List[StringMessageFromServer]] = Map.empty
   var chatGroupFollowed: List[String] = List()
   var userList: List[String] = List()
   var groupList: List[String] = List()
+  var isGroupSelected: Boolean = false
   var actualUserSelected: String =  new String()
   var indexActualUserSelected : Int = _
   var listNotification : List[(String,Boolean)] = List()
@@ -62,30 +64,42 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   @FXML
   def userSelected(): Unit = {
-    if (userListView.getSelectionModel.getSelectedItem!=null) {
+    if (userListView.getSelectionModel.getSelectedItem != null) {
+      isGroupSelected = false
       actualUserSelected = userListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText
       indexActualUserSelected = userListView.getSelectionModel.getSelectedIndex
       clientRef ! Client.RequestForChatCreationFromConsole(actualUserSelected)
       //remove green notification
       updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
-      drawMessageView(actualUserSelected)
+      drawMessageView(actualUserSelected, isGroup = false)
     }
   }
 
   @FXML
   def groupSelected(mouseEvent: MouseEvent): Unit = {
-    if (mouseEvent.getButton.equals(MouseButton.SECONDARY)
-      && !chatGroupFollowed.contains(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)) {
-      println("dx click on " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-    } else groupListView.getSelectionModel.getSelectedItems.forEach(user => {
-      val dialog = new Alert(AlertType.CONFIRMATION)
-      dialog.setTitle("Confirmation Dialog")
-      dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-      import javafx.scene.control.ButtonType
-      val result = dialog.showAndWait
-      if (result.get() == ButtonType.OK)
-        clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-    })
+    if (groupListView.getSelectionModel.getSelectedItem != null) {
+      val selectedGroupName = groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText
+      val selectedGroupIndex = groupListView.getSelectionModel.getSelectedIndex
+      if (mouseEvent.getButton.equals(MouseButton.PRIMARY)) {
+        if (!chatGroupFollowed.contains(selectedGroupName)) {
+          val dialog = new Alert(AlertType.CONFIRMATION)
+          dialog.setTitle("Confirmation Dialog")
+          dialog.setHeaderText("Do you want to subscribe to " + selectedGroupName + "?")
+          val result = dialog.showAndWait
+          if (result.get() == ButtonType.OK) {
+            clientRef ! Client.JoinGroupRequestFromConsole(selectedGroupName)
+          }
+        }
+        isGroupSelected = true
+        actualUserSelected = selectedGroupName
+        indexActualUserSelected = selectedGroupIndex
+        //remove green notification
+        updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
+        drawMessageView(actualUserSelected, isGroup = true)
+      } else if (mouseEvent.getButton.equals(MouseButton.SECONDARY) && !chatGroupFollowed.contains(selectedGroupName)) {
+        println("dx click on " + selectedGroupName)
+      }
+    }
   }
 
   @FXML
@@ -101,9 +115,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   def sendButtonAction(event:ActionEvent): Unit = {
     var itemNameSelected: Option[String] = Option.empty
     if (actualUserSelected!=null && actualUserSelected.length>0) itemNameSelected = Option(actualUserSelected)
-    else if (groupListView.getSelectionModel.getSelectedItem!=null)
-      itemNameSelected = Option(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-    itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item))
+    itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item, isGroupSelected))
     messageBox.clear()
   }
 
@@ -122,7 +134,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       storyMessageChat -= notExistingUser
       listNotification = listNotification.filterNot(_._1 == notExistingUser)
     })
-    if (!users.contains(actualUserSelected)) {
+    if (!isGroupSelected && !users.contains(actualUserSelected)) {
       actualUserSelected = new String()
       userListView.getItems.clear()
     }
@@ -153,7 +165,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
       userListView.setItems(userListHbox)
       //focus element on userList if a user is selected
-      if (actualUserSelected.length>0) userListView.getSelectionModel.selectIndices(indexActualUserSelected)
+      if (!isGroupSelected && actualUserSelected.length>0) userListView.getSelectionModel.selectIndices(indexActualUserSelected)
       //set label with users count
       onlineCountLabel.setText(userListHbox.size().toString)
     })
@@ -173,21 +185,24 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     groupListView.setItems(groupListHbox)
   }
 
-  def updateMessageView(recipient : String) : Unit = {
+  def updateMessageView(recipient: String, isGroup: Boolean) : Unit = {
     //if message comes from a different chat among the one selected, there are more than 1 chat and sender is not recipient
     if (recipient != actualUserSelected ) {
       //redraw userList with green notification for recipient
-      updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
-    } else drawMessageView(recipient)
+      if (!isGroup) {
+        updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
+      }
+    } else drawMessageView(recipient, isGroup)
   }
 
-  def drawMessageView(recipient: String): Unit = {
+  def drawMessageView(recipient: String, isGroup: Boolean): Unit = {
     chatPanel.getItems.clear()
-    if (storyMessageChat.contains(recipient)) {
-      val allMessageForRecipient = storyMessageChat(recipient)
+    val sourceHistory = if (isGroup) groupStoryMessageChat else storyMessageChat
+    if (sourceHistory.contains(recipient)) {
+      val allMessageForRecipient = sourceHistory(recipient)
       allMessageForRecipient.map(msg => if (msg.sender == userName) {
         val bubble: BubbledLabel = new BubbledLabel
-        bubble.setText(msg.message)
+        bubble.setText(userName + ": " + msg.message)
         bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
         val horizontalBox = new HBox
         horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
@@ -209,9 +224,13 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
 
+  def updateGroupMessageStory(storyMessage: Map[String,List[StringMessageFromGroupServer]]) : Unit = {
+    groupStoryMessageChat = storyMessage.map(groupMessages => groupMessages._1 -> groupMessages._2.map(msg => StringMessageFromServer(msg.message, msg.messageNumber, msg.sender, msg.group)))
+  }
+
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
-  def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) groupName::chatGroupFollowed
+  def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = groupName::chatGroupFollowed
 
   def removeChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = chatGroupFollowed.filter(_ != groupName)
 
@@ -236,7 +255,12 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
     case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
       interactionWithUI {
         chatController.updateMessageStory(storyMessage)
-        chatController.updateMessageView(recipient)
+        chatController.updateMessageView(recipient, isGroup = false)
+      }
+    case UpdateGroupStoryMessage(storyMessage, group) =>
+      interactionWithUI {
+        chatController.updateGroupMessageStory(storyMessage)
+        chatController.updateMessageView(group, isGroup = true)
       }
     case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) =>
       interactionWithUI {
@@ -271,10 +295,16 @@ object ActorViewController {
   final case class ResponseForChatGroupCreation(accept: Boolean)
 
   /**
-    * Receives all messages received
+    * Carries all the messages from other users and the writer of the most recent one
     * @param storyMessage map which stores for every recipient (key) all messages received
     */
   final case class UpdateStoryMessage(storyMessage: Map[String, List[StringMessageFromServer]], recipient: String)
+
+  /**
+    * Carries all the messages from groups and the group containing the most recent one
+    * @param storyMessage map which stores for every recipient (key) all messages received
+    */
+  final case class UpdateGroupStoryMessage(storyMessage: Map[String, List[StringMessageFromGroupServer]], recipient: String)
 
   /**
     * Response about request to join to a chat group

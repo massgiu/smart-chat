@@ -2,14 +2,14 @@ import Client._
 import GroupChatServer.{DoesContainsMembersInList, RemoveMember}
 import OneToOneChatServer.DoesContainsMembers
 import RegisterServer._
-import akka.actor.{Actor, ActorPath, ActorRef, Props, Stash}
+import Utils.ifNewNameIsValidOrElse
+import akka.actor.{Actor, ActorRef, Props, Stash}
 import akka.pattern.ask
 import akka.util.Timeout
-import Utils.ifNewNameIsValidOrElse
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class RegisterServer extends Actor with Stash {
 
@@ -33,7 +33,6 @@ class RegisterServer extends Actor with Stash {
     case NewGroupChatRequest(newGroupName) => createNewGroupChat(newGroupName)
       .ifSuccess(_ => {sender ! ResponseForChatCreation(true); sendNewServersToAllClients()})
       .orElse(_ => sender ! ResponseForChatCreation(false))
-      //Add/ remove li tolgo dal chat server
     case AllUsersAndGroupsRequest => model.getAllUsersAndGroupsNames
       .ifSuccess(usersAndGroups => sender ! UserAndGroupActive(usersAndGroups.head._1, usersAndGroups.head._2))
       .orElse(_ => sender ! UserAndGroupActive(List.empty, List.empty))
@@ -73,7 +72,7 @@ class RegisterServer extends Actor with Stash {
     var success = false
     ifNewNameIsValidOrElse(newGroupName, () =>
       ifSenderRegisteredOrElse(() => model.findGroup(newGroupName).ifSuccess(_ => Unit).orElse(_ => {
-        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map.empty, newGroupName))
+        val newGroupChatServer = context.actorOf(Props(classOf[GroupChatServer], Map.empty.asInstanceOf[Map[String, ActorRef]], newGroupName))
         model.addNewGroupChatServer(newGroupName, newGroupChatServer)
         success = true
       }), () => Unit), () => Unit)

@@ -2,6 +2,7 @@ import java.io.File
 
 import ActorLoginController.ResponseFromLogin
 import Client._
+import GroupChatServer.GroupMessage
 import OneToOneChatServer.Message
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
@@ -14,9 +15,11 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
   var users: List[String] = List()
   var groups: List[String] = List()
   var userRefMap: Map[String, ActorRef] = Map.empty
+  var groupRefMap: Map[String, ActorRef] = Map.empty
   val registerFilePath: String = "src/main/scala/res/server.conf"
   var userName: String = _
-  var storyMessageChat: Map[String, List[Option[StringMessageFromServer]]] = Map.empty //key is recipient
+  var storyMessageChat: Map[String, List[Option[StringMessageFromServer]]] = Map.empty
+  var groupStoryMessageChat: Map[String, List[Option[StringMessageFromGroupServer]]] = Map.empty
 
   var register: ActorSelection = _
   var actorView: Option[ActorRef] = Option.empty
@@ -64,11 +67,28 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
         .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
         .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
       actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(toSend, recipient))
-    case StringMessageFromConsole(message, recipient) =>
+    case StringMessageFromGroupServer(message, messageNumber, sender, group) =>
+      findInMap(group, groupStoryMessageChat).ifSuccess(messagesList => {
+        var temp = messagesList.head.toArray
+        if (messageNumber > temp.head.get.messageNumber) {
+          for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
+            temp = Option.empty +: temp
+          }
+          temp = Option(StringMessageFromGroupServer(message, messageNumber, sender, group)) +: temp
+        } else {
+          temp(temp.length - messageNumber.toInt) = Option(StringMessageFromGroupServer(message, messageNumber, sender, group))
+        }
+        groupStoryMessageChat += (group -> temp.toList)
+      }).orElse(_ => groupStoryMessageChat += (group -> List(Option(StringMessageFromGroupServer(message, messageNumber, sender, group)))))
+      val toSend = groupStoryMessageChat
+        .map(groupAndOpts => groupAndOpts._1 -> groupAndOpts._2.drop((groupAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
+      actorView.foreach(actor => actor ! ActorViewController.UpdateGroupStoryMessage(toSend, group))
+    case StringMessageFromConsole(message, recipient, isGroup) =>
       //search map with key==recipient
-      findInMap(recipient, userRefMap)
-        .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
-        .orElse(_ => searchRefFromRegister(recipient, ()=> self ! StringMessageFromConsole(message, recipient)))
+      findInMap(recipient, if (isGroup) groupRefMap else userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! (if (isGroup) GroupMessage(message, userName) else Message(message)))
+        .orElse(_ => searchRefFromRegister(recipient, isGroup, StringMessageFromConsole(message, recipient, isGroup)))
     case AttachmentMessageFromServer(attachment, senderName, messageNumber) =>
     //Display data on view/console
     case AttachmentMessageFromConsole(attachment, recipientName) =>
@@ -76,11 +96,11 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     case CreateGroupRequestFromConsole(groupName: String) =>
       register.tell(NewGroupChatRequest(groupName), self)
     case JoinGroupRequestFromConsole(groupName: String) =>
-      findInMap(groupName, userRefMap)
+      findInMap(groupName, groupRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! GroupChatServer.AddMember(userName,self))
-        .orElse(_ => searchRefFromRegister(groupName, ()=> self ! JoinGroupRequestFromConsole(groupName: String)))
+        .orElse(_ => searchRefFromRegister(groupName, isGroup = true, JoinGroupRequestFromConsole(groupName: String)))
     case UnJoinGroupRequestFromConsole(groupName: String) =>
-      findInMap(groupName, userRefMap)
+      findInMap(groupName, groupRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! GroupChatServer.RemoveMember(userName))
     case ResponseForChatCreation(response) =>
       if (response) {
@@ -126,16 +146,16 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       context.system.terminate()
   }
 
-  def searchRefFromRegister(nameToSearch: String, recursiveMessage: () => Unit): Unit = {
-    register ! GetServerRef(nameToSearch : String)
+  def searchRefFromRegister(nameToSearch: String, isGroup: Boolean, atResponseFromRegister: Any): Unit = {
+    if (isGroup) register ! GetGroupServerRef(nameToSearch) else register ! GetServerRef(nameToSearch)
     context.become({
       case ResponseForServerRefRequest(chatGroupServer) => chatGroupServer match {
         case Some(_) =>
           println("ChatServer/ChatGroupServer found!")
-          userRefMap += (nameToSearch -> chatGroupServer.get)
+          if (isGroup) groupRefMap += (nameToSearch -> chatGroupServer.get) else userRefMap += (nameToSearch -> chatGroupServer.get)
           unstashAll()
           context.unbecome()
-          recursiveMessage()
+          self ! atResponseFromRegister
         case _ =>
           println("ChatServer/ChatGroupServer unreachable")
           unstashAll()
@@ -182,7 +202,7 @@ object Client {
     * Get a message sent from client console
     * @param message message sent
     */
-  final case class StringMessageFromConsole(message : String, recipient : String)
+  final case class StringMessageFromConsole(message : String, recipient : String, isGroup: Boolean)
 
   /**
     * Get an attachment sent from server
