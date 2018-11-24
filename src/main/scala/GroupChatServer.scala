@@ -1,4 +1,4 @@
-import Client.StringMessageFromServer
+import Client.{StringMessageFromGroupServer, StringMessageFromServer}
 import GroupChatServer._
 import RegisterServer.ContainsMembers
 import akka.actor.{Actor, ActorRef}
@@ -21,12 +21,12 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
       findInMap(name,members)
         .ifSuccess(_ => {
           members -= name
-          Client.ResponseForUnJoinGroupRequest(accept = true,groupName)
+          sender ! Client.ResponseForUnJoinGroupRequest(accept = true,groupName)
         })
         .orElse(_ => sender ! Client.ResponseForUnJoinGroupRequest(accept = false,groupName))
     case GroupMessage(text, senderName) =>
       messageNumber += 1
-      members.foreach(member => member._2 ! StringMessageFromServer(text, messageNumber, senderName, member._1))
+      members.foreach(member => member._2 ! StringMessageFromGroupServer(text, messageNumber, senderName, member._1))
     case DoesContainsMembersInList(users) =>
       sender ! ContainsMembers(users.toSet.subsetOf(members.keySet))
     case _ => println("unknown message")
