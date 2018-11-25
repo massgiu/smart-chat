@@ -71,6 +71,19 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
         .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
         .orElse(_ => searchRefFromRegister(recipient, ()=> self ! StringMessageFromConsole(message, recipient)))
     case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) =>
+//      val recipient = if (userName != senderName) senderName else recipientName
+//      findInMap(recipient, storyAttachmentChat).ifSuccess(attachmentList => {
+//        var temp = attachmentList.head.toArray
+//        if (messageNumber > temp.head.get.messageNumber) {
+//          for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
+//            temp = Option.empty +: temp
+//          }
+//          temp = Option(AttachmentMessageFromServer(attachment, messageNumber, senderName, recipient)) +: temp
+//        } else {
+//          temp(temp.length - messageNumber.toInt) = Option(AttachmentMessageFromServer(attachment, messageNumber, senderName, recipient))
+//        }
+//        storyAttachmentChat += (recipient -> temp.toList)
+//      }).orElse(_ => storyAttachmentChat += (recipient -> List(Option(AttachmentMessageFromServer(attachment, messageNumber, senderName, recipient)))))
       val recipient = if (userName != senderName) senderName else recipientName
       findInMap(recipient, storyAttachmentChat)
         .ifSuccess(existingRecip  => {

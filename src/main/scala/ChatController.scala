@@ -120,11 +120,10 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   def attachmentButtonAction(event : ActionEvent) : Unit = {
     import java.nio.file.Files
     val fileChooser = new FileChooser
-//    fileContent = Option.empty
     fileChooser.setTitle("Select an image to attach")
     val selectFile: Option[File] = Option(fileChooser.showOpenDialog(null))
     selectFile.foreach(selFile => {
-      val img = new Image(selFile.toURI().toString())
+      val img = new Image(selFile.toURI.toString)
       fileContent = Option(Files.readAllBytes(Paths.get(selFile.getAbsolutePath)))
       attachmentButton.setStyle("-fx-base: green;")
     })
@@ -196,20 +195,18 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   def drawMessageView(recipient: String): Unit = {
-    import scala.math.max
     chatPanel.getItems.clear()
     var numMsgItems = 0
     var numAttachItems = 0
     if (storyMessageChat.contains(recipient)) numMsgItems = storyMessageChat(recipient).size
     if (storyAttachmentChat.contains(recipient)) numAttachItems = storyAttachmentChat(recipient).size
-    val numItems = max(numMsgItems, numAttachItems)
+    val numItems = numMsgItems+numAttachItems
     if (numItems > 0) {
       def mergeList(counter: Int, mergedList: Map[String, List[ComboMessage]], storyMessageChat: Map[String, List[StringMessageFromServer]], storyAttachmentChat: Map[String, List[AttachmentMessageFromServer]]): Map[String, List[ComboMessage]] = counter match {
         case a: Int if a <= numItems =>
-          //get message with sequence==conterr
-          var message = storyMessageChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
-          var attach = storyAttachmentChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
-          var tempList: List[ComboMessage] = {
+          val message = storyMessageChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
+          val attach = storyAttachmentChat.filter(elem => elem._1 == recipient).map(elem => elem._2.filter(elem => elem.messageNumber == counter)).filter(elem => elem.nonEmpty).map(elem => elem.head).headOption
+          val tempList: List[ComboMessage] = {
             if (mergedList.nonEmpty) ComboMessage(message, attach) :: mergedList(recipient)
             else List(ComboMessage(message, attach))
           }
@@ -220,34 +217,29 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       if (allMessageForRecipient.contains(recipient)) {
         val comboMessageForRecipient = allMessageForRecipient(recipient)
         comboMessageForRecipient.map(comboMsg => {
+          val stringMsg = comboMsg.stringMessage
+          val attachMsg = comboMsg.attachemtMessage
+          val bubble: BubbledLabel = new BubbledLabel
+          val horizontalBox = new HBox
+          if (stringMsg.isDefined) {
+            bubble.setText(stringMsg.get.message)
+          } else {
+            import java.io.ByteArrayInputStream
+            val imageView = new ImageView(new Image(new ByteArrayInputStream(attachMsg.get.payload)))
+            imageView.setFitHeight(150)
+            imageView.setPreserveRatio(true)
+            bubble.setGraphic(imageView)
+          }
           if ((comboMsg.stringMessage.isDefined && (comboMsg.stringMessage.get.sender == userName)) ||
             (comboMsg.attachemtMessage.isDefined && (comboMsg.attachemtMessage.get.sender == userName))) {
-            val stringMsg = comboMsg.stringMessage
-            val attachMsg = comboMsg.attachemtMessage
-            val bubble: BubbledLabel = new BubbledLabel
-            val horizontalBox = new HBox
-            if (stringMsg.isDefined) {
-              bubble.setText(stringMsg.get.message)
-            } else {
-              import java.io.ByteArrayInputStream
-              println("found image")
-              val img = new Image(new ByteArrayInputStream(attachMsg.get.payload))
-              bubble.setGraphic(new ImageView(img))
-            }
             horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
             horizontalBox.setAlignment(Pos.TOP_RIGHT)
             bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
             horizontalBox.getChildren.addAll(bubble)
             bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
-
             horizontalBox
           } else {
-            val stringMsg = comboMsg.stringMessage
-            val attachMsg = comboMsg.attachemtMessage
-            val bubble: BubbledLabel = new BubbledLabel
-            if (stringMsg.isDefined) bubble.setText(stringMsg.get.message)
             bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
-            val horizontalBox = new HBox
             bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
             horizontalBox.getChildren.addAll(bubble)
             horizontalBox
