@@ -178,7 +178,11 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       }).orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)),Option.empty))))
       val toSend = storyComboChat
         .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetMessage.isEmpty && optMsg.stringMessage.isEmpty) + 1).max(0)))
-        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => ComboMessage(opt.stringMessage,Option.empty))) //at this point all options should be present
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(
+          opt => {
+            if (opt.stringMessage.isDefined) ComboMessage(opt.stringMessage,Option.empty)
+            else ComboMessage(Option.empty,opt.attachmetMessage)
+        })) //at this point all options should be present
       actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
   } else {
       findInMap(recipient, storyComboChat).ifSuccess(messagesList => {
@@ -200,7 +204,10 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       }).orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient))))))
       val toSend = storyComboChat
         .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetMessage.isEmpty && optMsg.stringMessage.isEmpty) + 1).max(0)))
-        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => ComboMessage(Option.empty,opt.attachmetMessage))) //at this point all options should be present
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => {
+          if (opt.stringMessage.isDefined) ComboMessage(opt.stringMessage,Option.empty)
+          else ComboMessage(Option.empty,opt.attachmetMessage)
+        })) //at this point all options should be present
       actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
     }
   }
