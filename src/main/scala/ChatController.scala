@@ -196,7 +196,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def updateMessageView(recipient : String) : Unit = {
     //if message comes from a different chat among the one selected, there are more than 1 chat and sender is not recipient
-    println("recipient is "+recipient+" actualUserSelected is "+actualUserSelected)
     if (recipient != actualUserSelected ) {
       //redraw userList with green notification for recipient
       updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
@@ -214,7 +213,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         val attachMsg = comboMsg.attachmetMessage
         if (stringMsg.isDefined) {
           bubble.setText(stringMsg.get.message)
-        } else {
+        } else if (attachMsg.isDefined){
           val imageView = new ImageView(new Image(new ByteArrayInputStream(attachMsg.get.payload)))
           imageView.setFitHeight(150)
           imageView.setPreserveRatio(true)

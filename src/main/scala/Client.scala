@@ -51,52 +51,35 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       groups = groupList
       actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users, groups))
     case StringMessageFromServer(message, messageNumber, senderName, recipientName) =>
-      val recipient = if (userName != senderName) senderName else recipientName
-      findInMap(recipient, storyComboChat)
-        .ifSuccess(existingRecip  => {
-          var tmpHistoryComboMsg : List[ComboMessage] = existingRecip.head
-          tmpHistoryComboMsg = ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty) :: tmpHistoryComboMsg
-          storyComboChat += (recipient -> tmpHistoryComboMsg)
-        })
-        .orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty))))
-      val newComboMsg = ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty)
-//      checkOrderForOneToOneChat(newComboMsg,messageNumber,senderName, recipientName)
-      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat,recipient))
-//      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryAttachment(storyAttachmentChat, recipient))
-//      findInMap(recipient, storyMessageChat).ifSuccess(messagesList => {
-//        var temp = messagesList.head.toArray
-//        if (messageNumber > temp.head.get.messageNumber) {
-//          for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
-//            temp = Option.empty +: temp
-//          }
-//          temp = Option(StringMessageFromServer(message, messageNumber, senderName, recipient)) +: temp
-//        } else {
-//          temp(temp.length - messageNumber.toInt) = Option(StringMessageFromServer(message, messageNumber, senderName, recipient))
-//        }
-//        storyMessageChat += (recipient -> temp.toList)
-//      }).orElse(_ => storyMessageChat += (recipient -> List(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)))))
-//      val toSend = storyMessageChat
-//        .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
-//        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
-//      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
+//      val recipient = if (userName != senderName) senderName else recipientName
+//      findInMap(recipient, storyComboChat)
+//        .ifSuccess(existingRecip  => {
+//          var tmpHistoryComboMsg : List[ComboMessage] = existingRecip.head
+//          tmpHistoryComboMsg = ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty) :: tmpHistoryComboMsg
+//          storyComboChat += (recipient -> tmpHistoryComboMsg)
+//        })
+//        .orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty))))
+//      val newComboMsg = ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty)
+//      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat,recipient))
+      checkOrderForOneToOneChat(messageNumber,senderName,recipientName,true,message)
     case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) =>
-      val recipient = if (userName != senderName) senderName else recipientName
-      findInMap(recipient, storyComboChat)
-        .ifSuccess(existingRecip  => {
-          var tmpHistoryComboMsg : List[ComboMessage] = existingRecip.head
-          tmpHistoryComboMsg = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName))) :: tmpHistoryComboMsg
-          storyComboChat += (recipient -> tmpHistoryComboMsg)
-        })
-        .orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName))))))
-      val newComboMsg = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName)))
-//      checkOrderForOneToOneChat(newComboMsg,messageNumber,senderName, recipientName)
-      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat, recipient))
+//      val recipient = if (userName != senderName) senderName else recipientName
+//      findInMap(recipient, storyComboChat)
+//        .ifSuccess(existingRecip  => {
+//          var tmpHistoryComboMsg : List[ComboMessage] = existingRecip.head
+//          tmpHistoryComboMsg = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName))) :: tmpHistoryComboMsg
+//          storyComboChat += (recipient -> tmpHistoryComboMsg)
+//        })
+//        .orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName))))))
+//      val newComboMsg = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(attachment,messageNumber,senderName,recipientName)))
+//      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat, recipient))
+      checkOrderForOneToOneChat(messageNumber,senderName,recipientName,false,new String(),attachment)
+
     case StringMessageFromConsole(message, recipient) =>
       //search map with key==recipient
       findInMap(recipient, userRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! Message(message))
         .orElse(_ => searchRefFromRegister(recipient, ()=> self ! StringMessageFromConsole(message, recipient)))
-    case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) => Unit
     case AttachmentMessageFromConsole(attachment, senderName, recipientName) =>
       findInMap(recipientName, userRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! Attachment(attachment, senderName, recipientName))
@@ -173,7 +156,53 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     }, discardOld = false) // stack on top instead of replacing
   }
 
-  def checkOrderForOneToOneChat(comboMsg: ComboMessage,messageNumber: Long,senderName: String, recipientName: String) : Unit = {
+  def checkOrderForOneToOneChat(messageNumber:Long, senderName: String, recipientName: String, isStringMessage: Boolean, message: String = new String(), payload:Array[Byte] = Array() ) : Unit = {
+    val recipient = if (userName != senderName) senderName else recipientName
+    if(isStringMessage){
+      findInMap(recipient, storyComboChat).ifSuccess(messagesList => {
+        var temp = messagesList.head.toArray //convert combo list in an array
+        ////
+        var headMessageNumber: Long = 0
+        if(temp.head.stringMessage.isDefined) headMessageNumber = temp.head.stringMessage.get.messageNumber
+        else headMessageNumber = temp.head.attachmetMessage.get.messageNumber
+        ////
+        if (messageNumber > headMessageNumber) { //se il numero del messaggio arrivato è > di quello presente in testa
+          for (_ <- headMessageNumber + 1 until messageNumber) { //a partire dall'ultimo messagg memorizzato sino a quello arriv
+            temp = ComboMessage(Option.empty,Option.empty) +: temp //aggiungo dei messaggi vuoti
+          }
+          temp = ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)),Option.empty) +: temp
+        } else {
+          temp(temp.length - messageNumber.toInt) = ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)),Option.empty)
+        }
+        storyComboChat += (recipient -> temp.toList)
+      }).orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)),Option.empty))))
+      val toSend = storyComboChat
+        .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetMessage.isEmpty && optMsg.stringMessage.isEmpty) + 1).max(0)))
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => ComboMessage(opt.stringMessage,Option.empty))) //at this point all options should be present
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
+  } else {
+      findInMap(recipient, storyComboChat).ifSuccess(messagesList => {
+        var temp = messagesList.head.toArray //convert combo list in an array
+        ////
+        var headMessageNumber: Long = 0
+        if(temp.head.stringMessage.isDefined) headMessageNumber = temp.head.stringMessage.get.messageNumber
+        else headMessageNumber = temp.head.attachmetMessage.get.messageNumber
+        ////
+        if (messageNumber > headMessageNumber) {
+          for (_ <- headMessageNumber + 1 until messageNumber) {
+            temp = ComboMessage(Option.empty,Option.empty) +: temp
+          }
+          temp = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient))) +: temp
+        } else {
+          temp(temp.length - messageNumber.toInt) = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient)))
+        }
+        storyComboChat += (recipient -> temp.toList)
+      }).orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient))))))
+      val toSend = storyComboChat
+        .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetMessage.isEmpty && optMsg.stringMessage.isEmpty) + 1).max(0)))
+        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => ComboMessage(Option.empty,opt.attachmetMessage))) //at this point all options should be present
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
+    }
   }
 }
 
