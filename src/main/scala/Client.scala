@@ -61,7 +61,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
         .orElse(_ => storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty))))
       val newComboMsg = ComboMessage(Option(StringMessageFromServer(message,messageNumber,senderName,recipientName)),Option.empty)
 //      checkOrderForOneToOneChat(newComboMsg,messageNumber,senderName, recipientName)
-      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat,senderName))
+      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(storyComboChat,recipient))
 //      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryAttachment(storyAttachmentChat, recipient))
 //      findInMap(recipient, storyMessageChat).ifSuccess(messagesList => {
 //        var temp = messagesList.head.toArray
