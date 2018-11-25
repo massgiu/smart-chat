@@ -1,5 +1,5 @@
-import Client.StringMessageFromServer
-import OneToOneChatServer.{DoesContainsMembers, Message}
+import Client.{AttachmentMessageFromServer, StringMessageFromServer}
+import OneToOneChatServer.{Attachment, DoesContainsMembers, Message}
 import RegisterServer.ContainsMembers
 import akka.actor.{Actor, ActorRef}
 
@@ -19,6 +19,10 @@ class OneToOneChatServer(one: (String, ActorRef), two: (String, ActorRef)) exten
         sender ! ContainsMembers(trueOrFalse = true)
       else
         sender ! ContainsMembers(trueOrFalse = false)
+    case Attachment(payload: Array[Byte],sender: String, recipient: String) =>
+      messageNumber += 1
+      memberOne._2 ! AttachmentMessageFromServer(payload, messageNumber, senderName, recipientName)
+      memberTwo._2 ! AttachmentMessageFromServer(payload, messageNumber, senderName, recipientName)
     case _ => println("unknown message")
   }
 
@@ -29,12 +33,11 @@ class OneToOneChatServer(one: (String, ActorRef), two: (String, ActorRef)) exten
   def recipientName: String = {
     if (sender == memberOne._2) memberTwo._1 else memberOne._1
   }
-
 }
 
 object OneToOneChatServer {
 
   case class Message(text:String)
-  case class Attachment(payload:AttachmentContent)
+  case class Attachment(payload:Array[Byte],sender : String, recipient : String)
   case class DoesContainsMembers(firstMemberName: String, secondMemberName: String)
 }

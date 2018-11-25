@@ -1,9 +1,10 @@
+import java.io.File
 import java.net.URL
+import java.nio.file.{Files, Paths}
 import java.util
 import java.util.ResourceBundle
 
 import ActorViewController._
-import Client.StringMessageFromServer
 import Utils.interactionWithUI
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import javafx.collections.{FXCollections, ObservableList}
@@ -19,6 +20,8 @@ import javafx.scene.paint.Color
 import javafx.scene.text.Text
 import javafx.stage.FileChooser
 import rumorsapp.{BubbleSpec, BubbledLabel}
+import java.io.ByteArrayInputStream
+import javafx.scene.control.ButtonType
 
 class ChatController(userName : String, clientRef : ActorRef, system: ActorSystem) extends Initializable{
 
@@ -46,13 +49,16 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   var newChatGroupButton : Button = _
 
   var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
-  var storyMessageChat: Map[String,List[StringMessageFromServer]] = Map.empty
+  var storyComboMessageChat: Map[String,List[ComboMessage]] = Map.empty
   var chatGroupFollowed: List[String] = List()
   var userList: List[String] = List()
   var groupList: List[String] = List()
   var actualUserSelected: String =  new String()
   var indexActualUserSelected : Int = _
+  var actualGroupSelected: String =  new String()
+  var indexActualGroupSelected : Int = _
   var listNotification : List[(String,Boolean)] = List()
+  var fileContent : Option[Array[Byte]] = Option.empty
 
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
@@ -81,7 +87,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       val dialog = new Alert(AlertType.CONFIRMATION)
       dialog.setTitle("Confirmation Dialog")
       dialog.setHeaderText("Do you confirm to add to chatGroup: " + groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-      import javafx.scene.control.ButtonType
       val result = dialog.showAndWait
       if (result.get() == ButtonType.OK)
         clientRef ! Client.JoinGroupRequestFromConsole(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
@@ -100,26 +105,42 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def sendButtonAction(event:ActionEvent): Unit = {
     var itemNameSelected: Option[String] = Option.empty
-    if (actualUserSelected!=null && actualUserSelected.length>0) itemNameSelected = Option(actualUserSelected)
-    else if (groupListView.getSelectionModel.getSelectedItem!=null)
-      itemNameSelected = Option(groupListView.getSelectionModel.getSelectedItem.getChildren.get(0).asInstanceOf[Text].getText)
-    itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item))
+    //sending Message
+    if (messageBox.getText().length>0) {
+      if (actualUserSelected != null && actualUserSelected.length>0)
+        itemNameSelected = Option(actualUserSelected)
+      else if (actualGroupSelected != null && actualGroupSelected.length > 0)
+        itemNameSelected = Option(actualGroupSelected)
+      //sending attachment
+      itemNameSelected.foreach(item => clientRef ! Client.StringMessageFromConsole(messageBox.getText(), item))
+    } else if (fileContent.isDefined){
+      if (actualUserSelected != null && actualUserSelected.length > 0) {
+        itemNameSelected = Option(actualUserSelected)
+      } else if (actualGroupSelected != null && actualGroupSelected.length > 0)
+        itemNameSelected = Option(actualGroupSelected)
+      println("Sending attachment to single")
+      itemNameSelected.foreach(item => clientRef ! Client.AttachmentMessageFromConsole(fileContent.get, userName, item))
+      attachmentButton.setStyle("-fx-base: lightgrey;")
+      fileContent = Option.empty
+    }
     messageBox.clear()
   }
 
   def attachmentButtonAction(event : ActionEvent) : Unit = {
     val fileChooser = new FileChooser
-    val selectFile = fileChooser.showOpenDialog(null)
-    if (selectFile != null) {
-      val filePath =  selectFile.getAbsolutePath
-      println(filePath)
-    } else println("File is not valid")
+    fileChooser.setTitle("Select an image to attach")
+    val selectFile: Option[File] = Option(fileChooser.showOpenDialog(null))
+    selectFile.foreach(selFile => {
+      val img = new Image(selFile.toURI().toString())
+      fileContent = Option(Files.readAllBytes(Paths.get(selFile.getAbsolutePath)))
+      attachmentButton.setStyle("-fx-base: green;")
+    })
   }
 
   //Draw useListView and groupListView
   def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[String], notificationToRemove: Option[String]): Unit = {
     userList.filterNot(users.contains(_)).foreach(notExistingUser => {
-      storyMessageChat -= notExistingUser
+      storyComboMessageChat -= notExistingUser //delete key
       listNotification = listNotification.filterNot(_._1 == notExistingUser)
     })
     if (!users.contains(actualUserSelected)) {
@@ -183,31 +204,38 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def drawMessageView(recipient: String): Unit = {
     chatPanel.getItems.clear()
-    if (storyMessageChat.contains(recipient)) {
-      val allMessageForRecipient = storyMessageChat(recipient)
-      allMessageForRecipient.map(msg => if (msg.sender == userName) {
+    if (storyComboMessageChat.contains(recipient)) {
+      val comboMessageForRecipient = storyComboMessageChat(recipient)
+      comboMessageForRecipient.map(comboMsg => {
         val bubble: BubbledLabel = new BubbledLabel
-        bubble.setText(msg.message)
-        bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
         val horizontalBox = new HBox
-        horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
-        horizontalBox.setAlignment(Pos.TOP_RIGHT)
-        bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
-        horizontalBox.getChildren.addAll(bubble)
-        horizontalBox
-      } else {
-        val bubble: BubbledLabel = new BubbledLabel
-        bubble.setText(msg.sender + ": " + msg.message)
-        bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
-        val horizontalBox = new HBox
-        bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
-        horizontalBox.getChildren.addAll(bubble)
-        horizontalBox
+        val stringMsg = comboMsg.stringMessage
+        val attachMsg = comboMsg.attachmetMessage
+        if (stringMsg.isDefined) {
+          bubble.setText(stringMsg.get.message)
+        } else {
+          val img = new Image(new ByteArrayInputStream(attachMsg.get.payload))
+          bubble.setGraphic(new ImageView(img))
+        }
+        if ((comboMsg.stringMessage.isDefined && (comboMsg.stringMessage.get.sender == userName)) ||
+          (comboMsg.attachmetMessage.isDefined && (comboMsg.attachmetMessage.get.sender == userName))) {
+          horizontalBox.setMaxWidth(chatPanel.getWidth - 20)
+          horizontalBox.setAlignment(Pos.TOP_RIGHT)
+          bubble.setBubbleSpec(BubbleSpec.FACE_RIGHT_CENTER)
+          horizontalBox.getChildren.addAll(bubble)
+          bubble.setBackground(new Background(new BackgroundFill(Color.LIGHTGREEN, null, null)))
+          horizontalBox
+        } else {
+          bubble.setBackground(new Background(new BackgroundFill(Color.AQUAMARINE, null, null)))
+          bubble.setBubbleSpec(BubbleSpec.FACE_LEFT_CENTER)
+          horizontalBox.getChildren.addAll(bubble)
+          horizontalBox
+        }
       }).foreach(hbox => chatPanel.getItems.add(hbox))
     }
   }
 
-  def updateMessageStory(storyMessage: Map[String,List[StringMessageFromServer]]) : Unit = storyMessageChat = storyMessage
+  def updateComboMessageStory(storyComboMessage: Map[String,List[ComboMessage]]) : Unit = storyComboMessageChat = storyComboMessage
 
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
@@ -233,9 +261,9 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
       interactionWithUI {
         chatController.addOwnerToGroupAfterCreation(response: Boolean)
       }
-    case UpdateStoryMessage(storyMessage : Map[String,List[StringMessageFromServer]],recipient : String) =>
+    case UpdateStoryComboMessage(storyComboMessage : Map[String,List[ComboMessage]],recipient : String) =>
       interactionWithUI {
-        chatController.updateMessageStory(storyMessage)
+        chatController.updateComboMessageStory(storyComboMessage)
         chatController.updateMessageView(recipient)
       }
     case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) =>
@@ -274,7 +302,7 @@ object ActorViewController {
     * Receives all messages received
     * @param storyMessage map which stores for every recipient (key) all messages received
     */
-  final case class UpdateStoryMessage(storyMessage: Map[String, List[StringMessageFromServer]], recipient: String)
+  final case class UpdateStoryComboMessage(storyMessage: Map[String, List[ComboMessage]], recipient: String)
 
   /**
     * Response about request to join to a chat group
