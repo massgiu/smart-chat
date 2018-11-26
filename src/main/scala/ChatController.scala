@@ -50,6 +50,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
   var storyComboMessageChat: Map[String,List[ComboMessage]] = Map.empty
+  var storyComboGroupMessageChat: Map[String,List[ComboGroupMessage]] = Map.empty
   var chatGroupFollowed: List[String] = List()
   var userList: List[String] = List()
   var groupList: List[String] = List()
@@ -240,6 +241,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def updateComboMessageStory(storyComboMessage: Map[String,List[ComboMessage]]) : Unit = storyComboMessageChat = storyComboMessage
 
+  def updateComboGroupMessageStory(storyComboGroupMessage: Map[String,List[ComboGroupMessage]]) : Unit = storyComboGroupMessageChat = storyComboGroupMessage
+
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
   def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) groupName::chatGroupFollowed
@@ -268,6 +271,11 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
       interactionWithUI {
         chatController.updateComboMessageStory(storyComboMessage)
         chatController.updateMessageView(recipient)
+      }
+    case UpdateStoryComboGroupMessage(storyComboGroupMessage : Map[String,List[ComboGroupMessage]],recipient : String) =>
+      interactionWithUI {
+        chatController.updateComboGroupMessageStory(storyComboGroupMessage)
+//        chatController.updateMessageView(recipient)
       }
     case ResponseForJoinGroupToConsole(response: Boolean, groupName: String) =>
       interactionWithUI {
@@ -302,10 +310,16 @@ object ActorViewController {
   final case class ResponseForChatGroupCreation(accept: Boolean)
 
   /**
-    * Receives all messages received
-    * @param storyMessage map which stores for every recipient (key) all messages received
+    * @param storyMessage map which stores for every single chat (friend name is key) all messages received
+    * @param recipient recipient of combo messages
     */
   final case class UpdateStoryComboMessage(storyMessage: Map[String, List[ComboMessage]], recipient: String)
+
+  /**
+    * @param storyGroupMessage map which stores for every group joined (key) all messages received
+    * @param recipient recipient of combo messages
+    */
+  final case class UpdateStoryComboGroupMessage(storyGroupMessage: Map[String, List[ComboGroupMessage]], recipient: String)
 
   /**
     * Response about request to join to a chat group

@@ -1,6 +1,6 @@
 import java.nio.file.{Files, Paths}
 
-import ActorViewController.{UpdateStoryComboMessage, UpdateUserAndGroupActive}
+import ActorViewController.{UpdateStoryComboGroupMessage, UpdateStoryComboMessage, UpdateUserAndGroupActive}
 import Client._
 import akka.actor.{ActorSystem, ExtendedActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -80,6 +80,39 @@ class ClientChatServerTest extends TestKit(ActorSystem("MySpec")) with ImplicitS
       view.expectMsgPF()({case UpdateStoryComboMessage(msgs, _) if msgs("sender").length == 5 => Unit})
     }
 
-  }
+    "Send group string messages to its UI according to their ordering" in {
+      val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val view = TestProbe("view")
+      client ! SetActorView(view.ref)
+      view.expectMsgClass(classOf[UpdateUserAndGroupActive])
+      client ! StringMessageFromGroupServer("message1", 1, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! StringMessageFromGroupServer("message2", 3, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! StringMessageFromGroupServer("message4", 5, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! StringMessageFromGroupServer("message3", 2, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 3 => Unit})
+      client ! StringMessageFromGroupServer("message2", 4, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 5 => Unit})
+    }
 
+    "Send group messages and group attachments to its UI according to their ordering" in {
+      val client = system.actorOf(Props(new Client(system.asInstanceOf[ExtendedActorSystem])))
+      val attachMentTest = new Array[Byte](1)
+      val view = TestProbe("view")
+      client ! SetActorView(view.ref)
+      view.expectMsgClass(classOf[UpdateUserAndGroupActive])
+      client ! StringMessageFromGroupServer("message1", 1, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! AttachmentMessageFromGroupServer(attachMentTest, 3, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! StringMessageFromGroupServer("message5", 5, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 1 => Unit})
+      client ! AttachmentMessageFromGroupServer(attachMentTest, 2, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 3 => Unit})
+      client ! AttachmentMessageFromGroupServer(attachMentTest, 4, "sender", "recipient")
+      view.expectMsgPF()({case UpdateStoryComboGroupMessage(msgs, _) if msgs("sender").length == 5 => Unit})
+    }
+  }
 }
