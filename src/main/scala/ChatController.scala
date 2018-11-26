@@ -156,7 +156,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         listNotification = listNotification.filter(_._1 != elem))
     })
     var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
-    chatPanel.getItems.clear()
+//    chatPanel.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
       var hbox = new HBox()
       val texName = new Text(name)

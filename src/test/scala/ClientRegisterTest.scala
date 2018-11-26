@@ -17,13 +17,6 @@ class ClientRegisterTest extends TestKit(ActorSystem("MySpec")) with ImplicitSen
   "A client when interacts with register" must {
 
     "Get the response about registration from Register" in {
-      /*
-      client.tell(AcceptRegistrationFromRegister(true),self)
-      expectMsgClass(AllUsersAndGroupsRequest.getClass)
-      client.tell(AcceptRegistrationFromRegister(false),self)
-      expectNoMessage()
-      */
-
       //Multiple request
       def createTestWithMultipleActor(numActor: Int): Unit = {
         def request(numTest:Int,listActor:List[(TestProbe,Boolean)]):List[(TestProbe,Boolean)] = numTest match {
