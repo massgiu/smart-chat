@@ -45,6 +45,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   @FXML
   var newChatGroupButton : Button = _
 
+  private val onlineImagePath = getClass.getClassLoader.getResource("res/img/online.png").toString
+
   var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
   var storyMessageChat: Map[String,List[StringMessageFromServer]] = Map.empty
   var groupStoryMessageChat: Map[String, List[StringMessageFromServer]] = Map.empty
@@ -54,7 +56,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   var isGroupSelected: Boolean = false
   var actualUserSelected: String =  new String()
   var indexActualUserSelected : Int = _
-  var listNotification : List[(String,Boolean)] = List()
+  var listNotification: List[String] = List.empty
+  var groupListNotification: List[String] = List.empty
 
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
@@ -121,7 +124,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def attachmentButtonAction(event : ActionEvent) : Unit = {
     val fileChooser = new FileChooser
-    val selectFile = fileChooser.showOpenDialog(null)
+    val selectFile = fileChooser.showOpenDialog(newChatGroupButton.getScene.getWindow)
     if (selectFile != null) {
       val filePath =  selectFile.getAbsolutePath
       println(filePath)
@@ -130,69 +133,82 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   //Draw useListView and groupListView
   def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[String], notificationToRemove: Option[String]): Unit = {
+    //data structures update
+    userList = users
+    groupList = groups
     userList.filterNot(users.contains(_)).foreach(notExistingUser => {
       storyMessageChat -= notExistingUser
-      listNotification = listNotification.filterNot(_._1 == notExistingUser)
+      listNotification = listNotification.filterNot(_ == notExistingUser)
     })
     if (!isGroupSelected && !users.contains(actualUserSelected)) {
       actualUserSelected = new String()
       userListView.getItems.clear()
     }
-    userList = users
-    groupList = groups
-    users.foreach(elem => {
-      recipientNotification.foreach(recipientNotif => if (elem == recipientNotif)
-        listNotification = (elem, true) :: listNotification)
-      notificationToRemove.foreach(notificationToRem => if (elem == notificationToRem)
-        listNotification = listNotification.filter(_._1 != elem))
+    groupList.filterNot(groups.contains(_)).foreach(notExistingGroup => {
+      groupStoryMessageChat -= notExistingGroup
+      chatGroupFollowed = chatGroupFollowed.filterNot(_ == notExistingGroup)
+      groupListNotification = groupListNotification.filterNot(_ == notExistingGroup)
     })
-    var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
-    chatPanel.getItems.clear()
+    if (isGroupSelected && !groups.contains(actualUserSelected)) {
+      actualUserSelected = new String()
+      groupListView.getItems.clear()
+    }
+    recipientNotification.foreach(from => users.find(_ == from).foreach(_ => listNotification = from :: listNotification))
+    notificationToRemove.foreach(from => users.find(_ == from).foreach(_ => listNotification = listNotification.filter(_ != from)))
+
+    //users list graphical update
+    val usersGraphicalList: util.ArrayList[HBox] = new util.ArrayList[HBox]()
+    //chatPanel.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
-      var hbox = new HBox()
-      val texName = new Text(name)
-      var imageView = new ImageView()
-      texName.setStyle("-fx-font: 16 arial;")
-      //add name to list if is not contained in listNotification
-      if (listNotification.contains(name, true)) {
-        val onLineImage = new Image(getClass.getClassLoader.getResource("res/img/online.png").toString)
-        imageView = new ImageView(onLineImage)
-        hbox.getChildren.addAll(texName, imageView) //textName and image
-      } else hbox.getChildren.addAll(texName, imageView) //textName and image
-      hbox.setAlignment(Pos.CENTER_LEFT)
-      convertoToObservable.add(hbox)
-      val userListHbox: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
+      val userAndIconContainer = new HBox()
+      val textName = new Text(name)
+      var icon = new ImageView()
+      textName.setStyle("-fx-font: 16 arial;")
+      if (listNotification.contains(name)) {
+        val onLineImage = new Image(onlineImagePath)
+        icon = new ImageView(onLineImage)
+        userAndIconContainer.getChildren.addAll(textName, icon)
+      } else userAndIconContainer.getChildren.addAll(textName, icon)
+      userAndIconContainer.setAlignment(Pos.CENTER_LEFT)
+      usersGraphicalList.add(userAndIconContainer)
+      val userListHBox: ObservableList[HBox] = FXCollections.observableArrayList(usersGraphicalList)
       userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
-      userListView.setItems(userListHbox)
-      //focus element on userList if a user is selected
+      userListView.setItems(userListHBox)
       if (!isGroupSelected && actualUserSelected.length>0) userListView.getSelectionModel.selectIndices(indexActualUserSelected)
-      //set label with users count
-      onlineCountLabel.setText(userListHbox.size().toString)
+      onlineCountLabel.setText(userListHBox.size().toString)
     })
-    //groupList
-    convertoToObservable.clear()
-    groups.foreach(elem => {
-      var hbox = new HBox()
-      val textName = new Text(elem)
-      textName.setStyle("-fx-font: 16 arial; -fx-fill: black;")
-      if (chatGroupFollowed.contains(elem)) textName.setStyle("-fx-fill: green")
-      hbox.getChildren.addAll(textName) //textName and image
-      hbox.setAlignment(Pos.CENTER_LEFT)
-      convertoToObservable.add(hbox)
+
+    //groups list graphical update
+    val groupsGraphicalList: util.ArrayList[HBox] = new util.ArrayList[HBox]()
+    groups.foreach(group => {
+      val groupAndIconContainer = new HBox()
+      val textName = new Text(group)
+      var icon = new ImageView()
+      textName.setStyle("-fx-font: 16 arial;")
+      if (chatGroupFollowed.contains(group)) textName.setFill(Color.GREEN)
+      if (groupListNotification.contains(group)) {
+        val onLineImage = new Image(onlineImagePath)
+        icon = new ImageView(onLineImage)
+        groupAndIconContainer.getChildren.addAll(textName, icon)
+      } else groupAndIconContainer.getChildren.addAll(textName, icon)
+      groupAndIconContainer.setAlignment(Pos.CENTER_LEFT)
+      groupsGraphicalList.add(groupAndIconContainer)
+      val groupListHBox: ObservableList[HBox] = FXCollections.observableArrayList(groupsGraphicalList)
+      groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
+      groupListView.setItems(groupListHBox)
+      if (isGroupSelected && actualUserSelected.length>0) groupListView.getSelectionModel.selectIndices(indexActualUserSelected)
     })
-    val groupListHbox: ObservableList[HBox] = FXCollections.observableArrayList(convertoToObservable)
-    groupListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
-    groupListView.setItems(groupListHbox)
   }
 
   def updateMessageView(recipient: String, isGroup: Boolean) : Unit = {
     //if message comes from a different chat among the one selected, there are more than 1 chat and sender is not recipient
-    if (recipient != actualUserSelected ) {
-      //redraw userList with green notification for recipient
+    if (isGroupSelected == isGroup && recipient == actualUserSelected) {
+      drawMessageView(recipient, isGroup)
+    } else {
       if (!isGroup) {
         updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
       }
-    } else drawMessageView(recipient, isGroup)
+    }
   }
 
   def drawMessageView(recipient: String, isGroup: Boolean): Unit = {
@@ -230,7 +246,10 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   def addOwnerToGroupAfterCreation(response: Boolean): Unit = if (response) clientRef ! Client.JoinGroupRequestFromConsole(userName)
 
-  def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = groupName::chatGroupFollowed
+  def addChatGroup(response: Boolean, groupName: String) : Unit = if (response) {
+    chatGroupFollowed = groupName::chatGroupFollowed
+    updateUserGroupList(userList, groupList, Option.empty, Option.empty)
+  }
 
   def removeChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = chatGroupFollowed.filter(_ != groupName)
 

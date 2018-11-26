@@ -84,23 +84,10 @@ class RegisterServer extends Actor with Stash {
       case a if a.nonEmpty => Await.result(
         Future.sequence(a.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembers(senderName, friendName)).mapTo[ContainsMembers]))
           .map(chatServerAndFuture => chatServerAndFuture._2.map(future => (chatServerAndFuture._1, future.trueOrFalse))))
-          .map(responseList => responseList.find(chatServerAndResponse => chatServerAndResponse._2)), 10 seconds)
+          .map(responseList => responseList.find(chatServerAndResponse => chatServerAndResponse._2)), timeout.duration)
       case _ => Option.empty
     }
     OperationDone(b.isDefined, if (b.isDefined) List(b.get._1) else List.empty)
-  }
-
-  def findGroupChatServersContainingMembers(members: String*): OperationDone[List[ActorRef]] = {
-    val allGroupChatServers = new ListBuffer[ActorRef]
-    model.getAllUsersAndGroupsNames.ifSuccess(usersAndGroups => usersAndGroups.head._2.foreach(groupName => model.findGroup(groupName).ifSuccess(groupChatServer => allGroupChatServers += groupChatServer.head)))
-    val groupChatServersContainingMembers = allGroupChatServers.toList match {
-      case a if a.nonEmpty => Await.result(
-        Future.sequence(a.map(chatServer => (chatServer, chatServer.ask(DoesContainsMembersInList(members.toList)).mapTo[ContainsMembers]))
-          .map(chatServerAndFuture => chatServerAndFuture._2.map(future => (chatServerAndFuture._1, future.trueOrFalse))))
-          .map(responseList => responseList.filter(chatServerAndResponse => chatServerAndResponse._2).map(refAndResult => refAndResult._1)), 10 seconds)
-      case _ => List.empty
-    }
-    OperationDone(groupChatServersContainingMembers.nonEmpty, List(groupChatServersContainingMembers))
   }
 
   def sendNewServersToAllClients(): Unit =
