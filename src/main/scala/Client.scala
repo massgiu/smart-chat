@@ -54,10 +54,10 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       checkOrderForOneToOneChat(messageNumber,senderName,recipientName,true,message)
     case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) =>
       checkOrderForOneToOneChat(messageNumber,senderName,recipientName,false,new String(),attachment)
-    case StringMessageFromGroupServer(message, messageNumber, senderName, recipientName) =>
-      checkOrderForGroupChat(messageNumber,senderName,recipientName,true,message)
-    case AttachmentMessageFromGroupServer(attachment, messageNumber,senderName, recipientName) =>
-      checkOrderForGroupChat(messageNumber,senderName,recipientName,false,new String(),attachment)
+    case StringMessageFromGroupServer(message, messageNumber, senderName, groupName) =>
+      checkOrderForGroupChat(messageNumber,senderName,groupName,true,message)
+    case AttachmentMessageFromGroupServer(attachment, messageNumber,senderName, groupName) =>
+      checkOrderForGroupChat(messageNumber,senderName,groupName,false,new String(),attachment)
 
     case StringMessageFromConsole(message, recipient) =>
       //search map with key==recipient
@@ -176,9 +176,9 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
     actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
   }
 
-  def checkOrderForGroupChat(messageNumber:Long, senderName: String, recipientName: String, isStringMessage: Boolean, message: String = new String(), payload:Array[Byte] = Array() ) : Unit = {
-    val recipient = if (userName != senderName) senderName else recipientName
-    findInMap(recipient, storyComboGroupChat).ifSuccess(messagesList => {
+  def checkOrderForGroupChat(messageNumber:Long, senderName: String, groupName: String, isStringMessage: Boolean, message: String = new String(), payload:Array[Byte] = Array() ) : Unit = {
+//    val recipient = if (userName != senderName) senderName else groupName
+    findInMap(groupName, storyComboGroupChat).ifSuccess(messagesList => {
       var temp = messagesList.head.toArray
       var headMessageNumber: Long = 0
       if (temp.head.stringGroupMessage.isDefined) headMessageNumber = temp.head.stringGroupMessage.get.messageNumber
@@ -188,20 +188,20 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
           temp = ComboGroupMessage(Option.empty, Option.empty) +: temp
         }
         if (isStringMessage)
-          temp = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, recipient)), Option.empty) +: temp
+          temp = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty) +: temp
         else
-          temp = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, recipient))) +: temp
+          temp = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName))) +: temp
       } else {
         if (isStringMessage)
-          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, recipient)), Option.empty)
+          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty)
         else
-          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, recipient)))
+          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName)))
       }
-      storyComboGroupChat += (recipient -> temp.toList)
+      storyComboGroupChat += (groupName -> temp.toList)
     }).orElse(_ => if (isStringMessage)
-      storyComboGroupChat += (recipient -> List(ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, recipient)), Option.empty)))
+      storyComboGroupChat += (groupName -> List(ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty)))
     else
-      storyComboGroupChat += (recipient -> List(ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, recipient)))))
+      storyComboGroupChat += (groupName -> List(ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName)))))
     )
     val toSend = storyComboGroupChat
       .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetGroupMessage.isEmpty && optMsg.stringGroupMessage.isEmpty) + 1).max(0)))
@@ -209,7 +209,7 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
         if (opt.stringGroupMessage.isDefined) ComboGroupMessage(opt.stringGroupMessage,Option.empty)
         else ComboGroupMessage(Option.empty,opt.attachmetGroupMessage)
       }))
-    actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboGroupMessage(toSend, recipient))
+    actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboGroupMessage(toSend, groupName))
   }
 }
 

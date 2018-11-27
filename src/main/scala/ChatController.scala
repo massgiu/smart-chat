@@ -157,7 +157,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         listNotification = listNotification.filter(_._1 != elem))
     })
     var convertoToObservable: util.ArrayList[HBox] = new util.ArrayList[HBox]()
-//    chatPanel.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
       var hbox = new HBox()
       val texName = new Text(name)
@@ -272,7 +271,7 @@ class ActorViewController(clientRef : ActorRef, chatController : ChatController)
         chatController.updateComboMessageStory(storyComboMessage)
         chatController.updateMessageView(recipient)
       }
-    case UpdateStoryComboGroupMessage(storyComboGroupMessage : Map[String,List[ComboGroupMessage]],recipient : String) =>
+    case UpdateStoryComboGroupMessage(storyComboGroupMessage : Map[String,List[ComboGroupMessage]],groupName : String) =>
       interactionWithUI {
         chatController.updateComboGroupMessageStory(storyComboGroupMessage)
 //        chatController.updateMessageView(recipient)
