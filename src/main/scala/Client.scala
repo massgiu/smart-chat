@@ -2,8 +2,8 @@ import java.io.File
 
 import ActorLoginController.ResponseFromLogin
 import Client._
-import GroupChatServer.GroupMessage
-import OneToOneChatServer.Message
+import GroupChatServer.{GroupAttachment, GroupMessage}
+import OneToOneChatServer.{Attachment, Message}
 import RegisterServer._
 import akka.actor.{Actor, ActorRef, ActorSelection, ExtendedActorSystem, Stash}
 import com.typesafe.config.ConfigFactory
@@ -18,8 +18,8 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
   var groupRefMap: Map[String, ActorRef] = Map.empty
   val registerFilePath: String = "src/main/scala/res/server.conf"
   var userName: String = _
-  var storyMessageChat: Map[String, List[Option[StringMessageFromServer]]] = Map.empty
-  var groupStoryMessageChat: Map[String, List[Option[StringMessageFromGroupServer]]] = Map.empty
+  var storyComboChat: Map[String, List[ComboMessage]] = Map.empty
+  var storyComboGroupChat: Map[String, List[ComboGroupMessage]] = Map.empty
 
   var register: ActorSelection = _
   var actorView: Option[ActorRef] = Option.empty
@@ -50,49 +50,22 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       groups = groupList
       actorView.foreach(actor => actor ! ActorViewController.UpdateUserAndGroupActive(users, groups))
     case StringMessageFromServer(message, messageNumber, senderName, recipientName) =>
-      val recipient = if (userName != senderName) senderName else recipientName
-      findInMap(recipient, storyMessageChat).ifSuccess(messagesList => {
-        var temp = messagesList.head.toArray
-        if (messageNumber > temp.head.get.messageNumber) {
-          for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
-            temp = Option.empty +: temp
-          }
-          temp = Option(StringMessageFromServer(message, messageNumber, senderName, recipient)) +: temp
-        } else {
-          temp(temp.length - messageNumber.toInt) = Option(StringMessageFromServer(message, messageNumber, senderName, recipient))
-        }
-        storyMessageChat += (recipient -> temp.toList)
-      }).orElse(_ => storyMessageChat += (recipient -> List(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)))))
-      val toSend = storyMessageChat
-        .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
-        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
-      actorView.foreach(actor => actor ! ActorViewController.UpdateStoryMessage(toSend, recipient))
-    case StringMessageFromGroupServer(message, messageNumber, sender, group) =>
-      findInMap(group, groupStoryMessageChat).ifSuccess(messagesList => {
-        var temp = messagesList.head.toArray
-        if (messageNumber > temp.head.get.messageNumber) {
-          for (_ <- temp.head.get.messageNumber + 1 until messageNumber) {
-            temp = Option.empty +: temp
-          }
-          temp = Option(StringMessageFromGroupServer(message, messageNumber, sender, group)) +: temp
-        } else {
-          temp(temp.length - messageNumber.toInt) = Option(StringMessageFromGroupServer(message, messageNumber, sender, group))
-        }
-        groupStoryMessageChat += (group -> temp.toList)
-      }).orElse(_ => groupStoryMessageChat += (group -> List(Option(StringMessageFromGroupServer(message, messageNumber, sender, group)))))
-      val toSend = groupStoryMessageChat
-        .map(groupAndOpts => groupAndOpts._1 -> groupAndOpts._2.drop((groupAndOpts._2.lastIndexWhere(optMsg => optMsg.isEmpty) + 1).max(0)))
-        .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => opt.get)) //at this point all options should be present
-      actorView.foreach(actor => actor ! ActorViewController.UpdateGroupStoryMessage(toSend, group))
+      checkOrderForOneToOneChat(messageNumber,senderName,recipientName,isStringMessage = true,message)
+    case AttachmentMessageFromServer(attachment, messageNumber,senderName, recipientName) =>
+      checkOrderForOneToOneChat(messageNumber,senderName,recipientName,isStringMessage = false,new String(),attachment)
+    case StringMessageFromGroupServer(message, messageNumber, senderName, groupName) =>
+      checkOrderForGroupChat(messageNumber,senderName,groupName,isStringMessage = true,message)
+    case AttachmentMessageFromGroupServer(attachment, messageNumber,senderName, groupName) =>
+      checkOrderForGroupChat(messageNumber,senderName,groupName,isStringMessage = false,new String(),attachment)
     case StringMessageFromConsole(message, recipient, isGroup) =>
       //search map with key==recipient
       findInMap(recipient, if (isGroup) groupRefMap else userRefMap)
         .ifSuccess(foundRecipient => foundRecipient.head ! (if (isGroup) GroupMessage(message, userName) else Message(message)))
         .orElse(_ => searchRefFromRegister(recipient, isGroup, StringMessageFromConsole(message, recipient, isGroup)))
-    case AttachmentMessageFromServer(attachment, senderName, messageNumber) =>
-    //Display data on view/console
-    case AttachmentMessageFromConsole(attachment, recipientName) =>
-    //Same as TextMessageFromConsole
+    case AttachmentMessageFromConsole(attachment, senderName, recipientName, isGroup) =>
+      findInMap(recipientName, if (isGroup) groupRefMap else userRefMap)
+        .ifSuccess(foundRecipient => foundRecipient.head ! (if (isGroup) GroupAttachment(attachment, userName) else Attachment(attachment, senderName, recipientName)))
+        .orElse(_ => searchRefFromRegister(recipientName, isGroup, AttachmentMessageFromConsole(attachment, senderName, recipientName, isGroup)))
     case CreateGroupRequestFromConsole(groupName: String) =>
       register.tell(NewGroupChatRequest(groupName), self)
     case JoinGroupRequestFromConsole(groupName: String) =>
@@ -164,7 +137,84 @@ class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop
       case _ => stash()
     }, discardOld = false) // stack on top instead of replacing
   }
+
+  def checkOrderForOneToOneChat(messageNumber:Long, senderName: String, recipientName: String, isStringMessage: Boolean, message: String = new String(), payload:Array[Byte] = Array() ) : Unit = {
+    val recipient = if (userName != senderName) senderName else recipientName
+    findInMap(recipient, storyComboChat).ifSuccess(messagesList => {
+      var temp = messagesList.head.toArray //convert combo list in an array
+      var headMessageNumber: Long = 0
+      if (temp.head.stringMessage.isDefined) headMessageNumber = temp.head.stringMessage.get.messageNumber
+      else headMessageNumber = temp.head.attachmetMessage.get.messageNumber
+      if (messageNumber > headMessageNumber) {
+        for (_ <- headMessageNumber + 1 until messageNumber) {
+          temp = ComboMessage(Option.empty, Option.empty) +: temp
+        }
+        if (isStringMessage)
+          temp = ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)), Option.empty) +: temp
+        else
+          temp = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient))) +: temp
+      } else {
+        if (isStringMessage)
+          temp(temp.length - messageNumber.toInt) = ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)), Option.empty)
+        else
+          temp(temp.length - messageNumber.toInt) = ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient)))
+      }
+      storyComboChat += (recipient -> temp.toList)
+    }).orElse(_ => if (isStringMessage)
+      storyComboChat += (recipient -> List(ComboMessage(Option(StringMessageFromServer(message, messageNumber, senderName, recipient)), Option.empty)))
+    else
+      storyComboChat += (recipient -> List(ComboMessage(Option.empty,Option(AttachmentMessageFromServer(payload, messageNumber, senderName, recipient)))))
+    )
+    val toSend = storyComboChat
+      .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetMessage.isEmpty && optMsg.stringMessage.isEmpty) + 1).max(0)))
+      .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => {
+        if (opt.stringMessage.isDefined) ComboMessage(opt.stringMessage,Option.empty)
+        else ComboMessage(Option.empty,opt.attachmetMessage)
+      }))
+    actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboMessage(toSend, recipient))
+  }
+
+  def checkOrderForGroupChat(messageNumber:Long, senderName: String, groupName: String, isStringMessage: Boolean, message: String = new String(), payload:Array[Byte] = Array() ) : Unit = {
+    //    val recipient = if (userName != senderName) senderName else groupName
+    findInMap(groupName, storyComboGroupChat).ifSuccess(messagesList => {
+      var temp = messagesList.head.toArray
+      var headMessageNumber: Long = 0
+      if (temp.head.stringGroupMessage.isDefined) headMessageNumber = temp.head.stringGroupMessage.get.messageNumber
+      else headMessageNumber = temp.head.attachmetGroupMessage.get.messageNumber
+      if (messageNumber > headMessageNumber) {
+        for (_ <- headMessageNumber + 1 until messageNumber) {
+          temp = ComboGroupMessage(Option.empty, Option.empty) +: temp
+        }
+        if (isStringMessage)
+          temp = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty) +: temp
+        else
+          temp = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName))) +: temp
+      } else {
+        if (isStringMessage)
+          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty)
+        else
+          temp(temp.length - messageNumber.toInt) = ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName)))
+      }
+      storyComboGroupChat += (groupName -> temp.toList)
+    }).orElse(_ => if (isStringMessage)
+      storyComboGroupChat += (groupName -> List(ComboGroupMessage(Option(StringMessageFromGroupServer(message, messageNumber, senderName, groupName)), Option.empty)))
+    else
+      storyComboGroupChat += (groupName -> List(ComboGroupMessage(Option.empty,Option(AttachmentMessageFromGroupServer(payload, messageNumber, senderName, groupName)))))
+    )
+    val toSend = storyComboGroupChat
+      .map(friendAndOpts => friendAndOpts._1 -> friendAndOpts._2.drop((friendAndOpts._2.lastIndexWhere(optMsg => optMsg.attachmetGroupMessage.isEmpty && optMsg.stringGroupMessage.isEmpty) + 1).max(0)))
+      .map(friendAndOptsSliced => friendAndOptsSliced._1 -> friendAndOptsSliced._2.map(opt => {
+        if (opt.stringGroupMessage.isDefined) ComboGroupMessage(opt.stringGroupMessage,Option.empty)
+        else ComboGroupMessage(Option.empty,opt.attachmetGroupMessage)
+      }))
+    actorView.foreach(actor => actor ! ActorViewController.UpdateStoryComboGroupMessage(toSend, groupName))
+  }
 }
+
+case class ComboMessage(stringMessage: Option[StringMessageFromServer],attachmetMessage: Option[AttachmentMessageFromServer])
+
+case class ComboGroupMessage(stringGroupMessage: Option[StringMessageFromGroupServer],attachmetGroupMessage: Option[AttachmentMessageFromGroupServer])
+
 
 object Client {
 
@@ -209,13 +259,15 @@ object Client {
     * @param payload attachment sent
     * @param messageNumber the progressive number used to order all the exchanged messages
     */
-  final case class AttachmentMessageFromServer(payload : AttachmentContent, messageNumber: Long, sender : String)
+  final case class AttachmentMessageFromServer(payload : Array[Byte], messageNumber: Long, sender : String, recipient: String)
 
   /**
     * Get an attachment sent from client console
     * @param payload attachment sent
+    * @param sender name of sender
+    * @param recipient name of recpient
     */
-  final case class AttachmentMessageFromConsole(payload : AttachmentContent, recipient : String)
+  final case class AttachmentMessageFromConsole(payload : Array[Byte], sender: String, recipient : String, isGroup: Boolean)
 
   /**
     * @param payload the data that has been sent
@@ -223,7 +275,7 @@ object Client {
     * @param sender the name of the sender
     * @param group the name of the group the sender (and the current user) belong to
     */
-  final case class AttachmentMessageFromGroupServer(payload: AttachmentContent, messageNumber: Long, sender : String, group: String)
+  final case class AttachmentMessageFromGroupServer(payload: Array[Byte], messageNumber: Long, sender : String, group: String)
 
   /**
     * Request to create a chat a group from client console
@@ -292,6 +344,9 @@ object Client {
     */
   final case class SetActorLogin(actorLogin :ActorRef)
 
+  /**
+    * Request to close Client activity
+    */
   final case class StopRequest()
 
 }

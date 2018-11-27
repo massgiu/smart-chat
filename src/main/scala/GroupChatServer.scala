@@ -1,4 +1,5 @@
-import Client.{StringMessageFromGroupServer, StringMessageFromServer}
+
+import Client.{AttachmentMessageFromGroupServer, AttachmentMessageFromServer, StringMessageFromGroupServer, StringMessageFromServer}
 import GroupChatServer._
 import RegisterServer.ContainsMembers
 import akka.actor.{Actor, ActorRef}
@@ -27,6 +28,9 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
     case GroupMessage(text, senderName) =>
       messageNumber += 1
       members.foreach(member => member._2 ! StringMessageFromGroupServer(text, messageNumber, senderName, groupName))
+    case GroupAttachment(payload, senderName) =>
+      messageNumber += 1
+      members.foreach(member => member._2 ! AttachmentMessageFromGroupServer(payload : Array[Byte], messageNumber: Long, senderName, groupName))
     case DoesContainsMembersInList(users) =>
       sender ! ContainsMembers(users.toSet.subsetOf(members.keySet))
     case _ => println("unknown message")
@@ -36,8 +40,8 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
 object GroupChatServer {
   case class AddMember(name: String, actRef: ActorRef)
   case class RemoveMember(name: String)
-  case class GroupMessage(text: String, senderName : String)
-  case class GroupAttachment(payload:AttachmentContent)
+  case class GroupMessage(text: String, senderName: String)
+  case class GroupAttachment(payload:Array[Byte],senderName: String)
   case class JoinGroupChatRequest(name: String)
   case class UnJoinGroupChatRequest(name: String)
   case class DoesContainsMembersInList(users: List[String])
