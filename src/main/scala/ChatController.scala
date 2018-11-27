@@ -73,7 +73,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       indexActualUserSelected = userListView.getSelectionModel.getSelectedIndex
       clientRef ! Client.RequestForChatCreationFromConsole(actualUserSelected)
       //remove green notification
-      updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
+      updateUserGroupList(userList, groupList, None, Option((actualUserSelected, false)))
       drawMessageView(actualUserSelected, isGroup = false)
     }
   }
@@ -97,7 +97,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         actualUserSelected = selectedGroupName
         indexActualUserSelected = selectedGroupIndex
         //remove green notification
-        updateUserGroupList(userList, groupList, None, Option(actualUserSelected))
+        updateUserGroupList(userList, groupList, None, Option((actualUserSelected, true)))
         drawMessageView(actualUserSelected, isGroup = true)
       } else if (mouseEvent.getButton.equals(MouseButton.SECONDARY) && !chatGroupFollowed.contains(selectedGroupName)) {
         println("dx click on " + selectedGroupName)
@@ -132,7 +132,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   }
 
   //Draw useListView and groupListView
-  def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[String], notificationToRemove: Option[String]): Unit = {
+  def updateUserGroupList(users: List[String], groups: List[String], recipientNotification: Option[(String, Boolean)], notificationToRemove: Option[(String, Boolean)]): Unit = {
     //data structures update
     userList = users
     groupList = groups
@@ -153,8 +153,20 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       actualUserSelected = new String()
       groupListView.getItems.clear()
     }
-    recipientNotification.foreach(from => users.find(_ == from).foreach(_ => listNotification = from :: listNotification))
-    notificationToRemove.foreach(from => users.find(_ == from).foreach(_ => listNotification = listNotification.filter(_ != from)))
+    recipientNotification.foreach(from => {
+      if (from._2) {
+        groups.find(_ == from._1).foreach(_ => groupListNotification = from._1 :: groupListNotification)
+      } else {
+        users.find(_ == from._1).foreach(_ => listNotification = from._1 :: listNotification)
+      }
+    })
+    notificationToRemove.foreach(from => {
+      if (from._2) {
+        groups.find(_ == from._1).foreach(_ => groupListNotification = groupListNotification.filter(_ != from._1))
+      } else {
+        users.find(_ == from._1).foreach(_ => listNotification = listNotification.filter(_ != from._1))
+      }
+    })
 
     //users list graphical update
     val usersGraphicalList: util.ArrayList[HBox] = new util.ArrayList[HBox]()
@@ -206,7 +218,9 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       drawMessageView(recipient, isGroup)
     } else {
       if (!isGroup) {
-        updateUserGroupList(userList, groupList, Option(recipient),Option.empty)
+        updateUserGroupList(userList, groupList, Option((recipient, false)),Option.empty)
+      } else {
+        updateUserGroupList(userList, groupList, Option((recipient, true)),Option.empty)
       }
     }
   }
@@ -254,6 +268,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
   def removeChatGroup(response: Boolean, groupName: String) : Unit = if (response) chatGroupFollowed = chatGroupFollowed.filter(_ != groupName)
 
 }
+
+case class NewMessage(message: String, messageIndex: Long, originalSender: String, originalRecipient: String)
 
 class ActorViewController(clientRef : ActorRef, chatController : ChatController) extends Actor {
 
