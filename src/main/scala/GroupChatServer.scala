@@ -29,7 +29,7 @@ class GroupChatServer(m: Map[String, ActorRef] = Map.empty, groupName: String) e
       members.foreach(member => member._2 ! StringMessageFromGroupServer(text, messageNumber, senderName, groupName))
     case GroupAttachment(payload, senderName) =>
       messageNumber += 1
-      members.foreach(member => member._2 ! AttachmentMessageFromServer(payload : Array[Byte], messageNumber: Long, senderName, member._1))
+      members.foreach(member => member._2 ! AttachmentMessageFromServer(payload : Array[Byte], messageNumber: Long, senderName, groupName))
     case DoesContainsMembersInList(users) =>
       sender ! ContainsMembers(users.toSet.subsetOf(members.keySet))
     case _ => println("unknown message")
