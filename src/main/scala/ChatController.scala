@@ -153,7 +153,7 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     })
     if (!isGroupSelected && !users.contains(actualUserSelected)) {
       actualUserSelected = new String()
-      userListView.getItems.clear()
+      chatPanel.getItems.clear()
     }
     groupList.filterNot(groups.contains(_)).foreach(notExistingGroup => {
       storyComboGroupMessageChat -= notExistingGroup
@@ -162,8 +162,10 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
     })
     if (isGroupSelected && !groups.contains(actualUserSelected)) {
       actualUserSelected = new String()
-      groupListView.getItems.clear()
+      chatPanel.getItems.clear()
     }
+    userListView.getItems.clear()
+    groupListView.getItems.clear()
     recipientNotification.foreach(from => {
       if (from._2) {
         groups.find(_ == from._1).foreach(_ => groupListNotification = from._1 :: groupListNotification)
@@ -181,7 +183,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
     //users list graphical update
     val usersGraphicalList: util.ArrayList[HBox] = new util.ArrayList[HBox]()
-    //chatPanel.getItems.clear()
     users.filter(name => name != userName).foreach(name => {
       val userAndIconContainer = new HBox()
       val textName = new Text(name)
