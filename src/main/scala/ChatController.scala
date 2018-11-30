@@ -199,8 +199,8 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
       userListView.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)
       userListView.setItems(userListHBox)
       if (!isGroupSelected && actualUserSelected.length>0) userListView.getSelectionModel.selectIndices(indexActualUserSelected)
-      onlineCountLabel.setText(userListHBox.size().toString)
     })
+    onlineCountLabel.setText(userListView.getItems.size().toString)
 
     //groups list graphical update
     val groupsGraphicalList: util.ArrayList[HBox] = new util.ArrayList[HBox]()
