@@ -49,18 +49,18 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
 
   private val onlineImagePath = getClass.getClassLoader.getResource("res/img/online.png").toString
 
-  var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
-  var storyComboMessageChat: Map[String,List[ComboMessage]] = Map.empty
-  var storyComboGroupMessageChat: Map[String,List[ComboMessage]] = Map.empty
-  var chatGroupFollowed: List[String] = List()
-  var userList: List[String] = List()
-  var groupList: List[String] = List()
-  var isGroupSelected: Boolean = false
-  var actualUserSelected: String =  new String()
-  var indexActualUserSelected : Int = _
-  var listNotification: List[String] = List.empty
-  var groupListNotification: List[String] = List.empty
-  var fileContent : Option[Array[Byte]] = Option.empty
+  private var chatMessage: ObservableList[HBox] = FXCollections.observableArrayList()
+  private var storyComboMessageChat: Map[String,List[ComboMessage]] = Map.empty
+  private var storyComboGroupMessageChat: Map[String,List[ComboMessage]] = Map.empty
+  private var chatGroupFollowed: List[String] = List()
+  private var userList: List[String] = List()
+  private var groupList: List[String] = List()
+  private var isGroupSelected: Boolean = false
+  private var actualUserSelected: String =  new String()
+  private var indexActualUserSelected : Int = _
+  private var listNotification: List[String] = List.empty
+  private var groupListNotification: List[String] = List.empty
+  private var fileContent : Option[Array[Byte]] = Option.empty
 
 
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
@@ -97,7 +97,6 @@ class ChatController(userName : String, clientRef : ActorRef, system: ActorSyste
         updateUserGroupList(userList, groupList, None, Option((actualUserSelected, true)))
         drawMessageView(actualUserSelected, isGroup = true)
       } else if (mouseEvent.getButton.equals(MouseButton.SECONDARY) && chatGroupFollowed.contains(selectedGroupName)) {
-        println("dx click on " + selectedGroupName)
         confirmationDialog("Do you confirm to unsubscribe to " + selectedGroupName + "?",selectedGroupName,
           Client.UnJoinGroupRequestFromConsole(selectedGroupName))
       }

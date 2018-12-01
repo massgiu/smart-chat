@@ -13,19 +13,19 @@ import akka.actor.TypedActor.PostStop
 
 class Client(system: ExtendedActorSystem) extends Actor with Stash with PostStop {
 
-  var users: List[String] = List()
-  var groups: List[String] = List()
-  var userRefMap: Map[String, ActorRef] = Map.empty
-  var groupRefMap: Map[String, ActorRef] = Map.empty
-  val registerFilePath: String = "src/main/scala/res/server.conf"
-  var userName: String = _
-  var storyComboChat: Map[String, List[ComboMessage]] = Map.empty
-  var storyComboGroupChat: Map[String, List[ComboGroupMessage]] = Map.empty
+  private var users: List[String] = List()
+  private var groups: List[String] = List()
+  private var userRefMap: Map[String, ActorRef] = Map.empty
+  private var groupRefMap: Map[String, ActorRef] = Map.empty
+  private val registerFilePath: String = "src/main/scala/res/server.conf"
+  private var userName: String = _
+  private var storyComboChat: Map[String, List[ComboMessage]] = Map.empty
+  private var storyComboGroupChat: Map[String, List[ComboGroupMessage]] = Map.empty
 
-  var register: ActorSelection = _
-  var actorView: Option[ActorRef] = Option.empty
-  var actorLogin: Option[ActorRef] = Option.empty
-  var messageRecipient: String = new String()
+  private var register: ActorSelection = _
+  private var actorView: Option[ActorRef] = Option.empty
+  private var actorLogin: Option[ActorRef] = Option.empty
+  private var messageRecipient: String = new String()
 
   override def preStart(): Unit = {
     val serverConfig = ConfigFactory.parseFile(new File(registerFilePath))
